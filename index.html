@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Zac's Football Game</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- MAIN MENU -->
+<div id="main-menu" class="screen">
+  <h1>ZAC'S FOOTBALL GAME</h1>
+  <button id="btn-play">Play</button>
+  <button id="btn-exit">Exit Game</button>
+</div>
+
+<!-- MATCH SETUP -->
+<div id="setup-screen" class="screen hidden">
+  <h1>MATCH SETUP</h1>
+
+  <div class="setup-row">
+    <label for="team-select">Your Team</label>
+    <select id="team-select"></select>
+  </div>
+
+  <div class="setup-row">
+    <label for="opp-select">Opponent Team</label>
+    <select id="opp-select"></select>
+  </div>
+
+  <div class="setup-row">
+    <label for="half-select">Half Length</label>
+    <select id="half-select">
+      <option value="1">1 minute</option>
+      <option value="2" selected>2 minutes</option>
+      <option value="3">3 minutes</option>
+      <option value="5">5 minutes</option>
+      <option value="10">10 minutes</option>
+    </select>
+  </div>
+
+  <div class="setup-row">
+    <label for="skill-select">AI Skill Level</label>
+    <select id="skill-select">
+      <option value="easy">Easy</option>
+      <option value="medium" selected>Medium</option>
+      <option value="hard">Hard</option>
+    </select>
+  </div>
+
+  <button id="btn-start-match">Kick Off</button>
+  <button id="btn-back-menu">Back</button>
+</div>
+
+<!-- MATCH SCREEN -->
+<div id="match-screen" class="screen hidden">
+
+  <div id="scoreboard">
+    <span id="score-home-name">HOME</span>
+    <span id="score-home">0</span>
+    <span class="dash">-</span>
+    <span id="score-away">0</span>
+    <span id="score-away-name">AWAY</span>
+    <span id="match-clock">00:00</span>
+    <span id="half-label">1st Half</span>
+    <button id="btn-pause">Pause (P)</button>
+  </div>
+
+  <canvas id="pitch" width="1130" height="760"></canvas>
+
+  <button id="btn-toggle-input">Touch Controls</button>
+
+  <div id="controls-panel">
+    <button id="controls-toggle">Controls &#9656;</button>
+    <div id="controls-body" class="hidden">
+      <table>
+        <tr><td>Move Up</td><td>W</td></tr>
+        <tr><td>Move Down</td><td>S</td></tr>
+        <tr><td>Move Left</td><td>A</td></tr>
+        <tr><td>Move Right</td><td>D</td></tr>
+        <tr><td>Pass (hold for power, max 2s)</td><td>J</td></tr>
+        <tr><td>Shoot (hold for power, max 2s)</td><td>K</td></tr>
+        <tr><td>Tackle</td><td>L</td></tr>
+        <tr><td>Switch Player (when not in possession)</td><td>Q</td></tr>
+        <tr><td>Pause / Resume</td><td>P</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ON-SCREEN TOUCH CONTROLS -->
+  <div id="touch-controls" class="hidden">
+    <div id="touch-joystick">
+      <div id="joystick-base">
+        <div id="joystick-stick"></div>
+      </div>
+    </div>
+    <div id="touch-actions">
+      <button id="td-switch" class="action-btn">Switch</button>
+      <button id="td-tackle" class="action-btn">Tackle</button>
+      <button id="td-pass" class="action-btn">Pass</button>
+      <button id="td-shoot" class="action-btn">Shoot</button>
+    </div>
+  </div>
+
+  <!-- PAUSE OVERLAY -->
+  <div id="pause-overlay" class="overlay hidden">
+    <div class="overlay-box">
+      <h2>PAUSED</h2>
+      <button id="btn-resume">Resume (P)</button>
+      <button id="btn-quit-to-menu">Quit to Main Menu</button>
+    </div>
+  </div>
+
+  <!-- HALFTIME OVERLAY -->
+  <div id="halftime-overlay" class="overlay hidden">
+    <div class="overlay-box">
+      <h2>HALF TIME</h2>
+      <p id="halftime-timer">30</p>
+      <button id="btn-continue-halftime">Continue</button>
+    </div>
+  </div>
+
+  <!-- FULL TIME OVERLAY -->
+  <div id="fulltime-overlay" class="overlay hidden">
+    <div class="overlay-box">
+      <h2>FULL TIME</h2>
+      <p id="fulltime-score"></p>
+      <button id="btn-fulltime-menu">Return to Main Menu</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
