@@ -1,72 +1,597 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Zac's Football Game</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Retro Ball</title>
 <link rel="stylesheet" href="style.css">
+<!-- PWA: lets a phone/desktop "Install"/"Add to Home Screen" this as its
+     own app (own icon, no browser bar, works offline) - see manifest.json
+     and sw.js. None of this affects the game when it's just opened as a
+     normal page, only when installed. -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d1117">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-512.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Retro Ball">
 </head>
 <body>
 
 <!-- MAIN MENU -->
-<div id="main-menu" class="screen">
-  <h1>ZAC'S FOOTBALL GAME</h1>
-  <button id="btn-play">Play</button>
-  <button id="btn-exit">Exit Game</button>
+<div id="main-menu" class="screen menu-screen">
+  <h1 class="menu-title">RETRO BALL</h1>
+  <div id="menu-corner-buttons">
+    <button id="btn-fullscreen" class="menu-corner-btn" aria-label="Toggle fullscreen">&#9974;</button>
+    <button id="btn-stats" class="menu-corner-btn" aria-label="Lifetime stats">&#127942;</button>
+    <button id="btn-settings" class="menu-corner-btn" aria-label="Settings">&#9881;</button>
+  </div>
+  <button id="btn-play" class="menu-panel panel-play">
+    <span class="panel-icon">&#9917;</span>
+    <span class="panel-label">Play</span>
+  </button>
+  <button id="btn-season" class="menu-panel panel-season">
+    <span class="panel-icon">&#128197;</span>
+    <span class="panel-label">Season</span>
+  </button>
+  <button id="btn-cup" class="menu-panel panel-cup">
+    <span class="panel-icon">&#127942;</span>
+    <span class="panel-label">Cup</span>
+  </button>
+  <button id="btn-practice" class="menu-panel panel-practice">
+    <span class="panel-icon">&#127919;</span>
+    <span class="panel-label">Practice</span>
+  </button>
+  <button id="btn-career" class="menu-panel panel-career">
+    <span class="panel-icon">&#128188;</span>
+    <span class="panel-label">Career</span>
+  </button>
+  <button id="btn-online" class="menu-panel panel-online">
+    <span class="panel-icon">&#127760;</span>
+    <span class="panel-label">Online</span>
+  </button>
+  <button id="btn-exit" class="menu-panel panel-exit">
+    <span class="panel-icon">&#128682;</span>
+    <span class="panel-label">Exit Game</span>
+  </button>
+</div>
+
+<!-- SEASON SETUP -->
+<div id="season-setup-screen" class="screen hidden match-setup-custom custom-setup-screen">
+  <div class="setup-top-row">
+    <div class="team-box" id="season-team-box">
+      <button id="season-team-prev" class="team-arrow" aria-label="Previous team">&#10094;</button>
+      <span id="season-team-name" class="team-box-name">Team</span>
+      <button id="season-team-next" class="team-arrow" aria-label="Next team">&#10095;</button>
+    </div>
+  </div>
+  <div class="setup-bottom-row">
+    <div class="quarter-box clock-box">
+      <span class="clock-title">Half Length</span>
+      <div class="clock-controls">
+        <button id="season-half-prev" class="team-arrow" aria-label="Shorter half">&#10094;</button>
+        <div class="clock-dial">
+          <span id="season-half-label" class="clock-value">2 min</span>
+        </div>
+        <button id="season-half-next" class="team-arrow" aria-label="Longer half">&#10095;</button>
+      </div>
+      <button id="btn-season-back-menu" class="back-btn-overlap">Back</button>
+    </div>
+    <button id="btn-start-season" class="quarter-box season-start-box">
+      <span class="season-start-graphic">
+        <span class="season-bar season-bar-1"></span>
+        <span class="season-bar season-bar-2"></span>
+        <span class="season-bar season-bar-3"></span>
+      </span>
+      <span class="kickoff-word season-start-word">START SEASON</span>
+    </button>
+    <div class="quarter-box rank-box">
+      <div class="rank-grid">
+        <button class="rank-tile rank-bronze" data-skill="easy"><span class="rank-name">Bronze</span></button>
+        <button class="rank-tile rank-silver" data-skill="medium"><span class="rank-name">Silver</span></button>
+        <button class="rank-tile rank-gold" data-skill="hard"><span class="rank-name">Gold</span></button>
+        <button class="rank-tile rank-diamond" data-skill="expert"><span class="rank-name">Diamond</span></button>
+        <button class="rank-tile rank-platinum" data-skill="legendary"><span class="rank-name">Platinum</span></button>
+        <button class="rank-tile rank-champion" data-skill="champion"><span class="rank-name">Champion</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SEASON TABLE -->
+<div id="season-table-screen" class="screen hidden theme-season">
+  <span class="screen-watermark">&#128197;</span>
+  <div class="setup-card">
+    <span class="setup-icon">&#128197;</span>
+    <h1>SEASON</h1>
+    <div id="season-record"></div>
+    <div id="season-fixtures"></div>
+    <button id="btn-season-next" class="btn-primary">Next Match</button>
+    <button id="btn-season-quit">Return to Main Menu</button>
+  </div>
+</div>
+
+<!-- CUP SETUP -->
+<div id="cup-setup-screen" class="screen hidden match-setup-custom custom-setup-screen">
+  <div class="setup-top-row">
+    <div class="team-box" id="cup-team-box">
+      <button id="cup-team-prev" class="team-arrow" aria-label="Previous team">&#10094;</button>
+      <span id="cup-team-name" class="team-box-name">Team</span>
+      <button id="cup-team-next" class="team-arrow" aria-label="Next team">&#10095;</button>
+    </div>
+  </div>
+  <div class="setup-bottom-row">
+    <div class="quarter-box clock-box">
+      <span class="clock-title">Half Length</span>
+      <div class="clock-controls">
+        <button id="cup-half-prev" class="team-arrow" aria-label="Shorter half">&#10094;</button>
+        <div class="clock-dial">
+          <span id="cup-half-label" class="clock-value">2 min</span>
+        </div>
+        <button id="cup-half-next" class="team-arrow" aria-label="Longer half">&#10095;</button>
+      </div>
+      <button id="btn-cup-back-menu" class="back-btn-overlap">Back</button>
+    </div>
+    <button id="btn-start-cup" class="quarter-box cup-start-box">
+      <span class="cup-start-graphic"></span>
+      <span class="kickoff-word">START CUP</span>
+    </button>
+    <div class="quarter-box rank-box">
+      <div class="rank-grid">
+        <button class="rank-tile rank-bronze" data-skill="easy"><span class="rank-name">Bronze</span></button>
+        <button class="rank-tile rank-silver" data-skill="medium"><span class="rank-name">Silver</span></button>
+        <button class="rank-tile rank-gold" data-skill="hard"><span class="rank-name">Gold</span></button>
+        <button class="rank-tile rank-diamond" data-skill="expert"><span class="rank-name">Diamond</span></button>
+        <button class="rank-tile rank-platinum" data-skill="legendary"><span class="rank-name">Platinum</span></button>
+        <button class="rank-tile rank-champion" data-skill="champion"><span class="rank-name">Champion</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CUP PROGRESS -->
+<div id="cup-progress-screen" class="screen hidden theme-cup">
+  <span class="screen-watermark">&#127942;</span>
+  <div class="setup-card">
+    <span class="setup-icon">&#127942;</span>
+    <h1>CUP</h1>
+    <div id="cup-status"></div>
+    <div id="cup-rounds"></div>
+    <button id="btn-cup-next" class="btn-primary">Next Match</button>
+    <button id="btn-cup-quit">Return to Main Menu</button>
+  </div>
+</div>
+
+<!-- PRACTICE SETUP -->
+<div id="practice-setup-screen" class="screen hidden match-setup-custom custom-setup-screen">
+  <div class="setup-top-row">
+    <div class="team-box" id="practice-team-box">
+      <button id="practice-team-prev" class="team-arrow" aria-label="Previous team">&#10094;</button>
+      <span id="practice-team-name" class="team-box-name">Team</span>
+      <button id="practice-team-next" class="team-arrow" aria-label="Next team">&#10095;</button>
+    </div>
+  </div>
+  <div class="setup-bottom-row">
+    <div class="quarter-box clock-box">
+      <span class="clock-title">Drill</span>
+      <div class="clock-controls">
+        <button id="practice-mode-prev" class="team-arrow" aria-label="Previous drill">&#10094;</button>
+        <div class="clock-dial">
+          <span id="practice-mode-label" class="clock-value">Penalties</span>
+        </div>
+        <button id="practice-mode-next" class="team-arrow" aria-label="Next drill">&#10095;</button>
+      </div>
+      <button id="btn-practice-back-menu" class="back-btn-overlap">Back</button>
+    </div>
+    <button id="btn-start-practice" class="quarter-box practice-start-box">
+      <span class="practice-start-graphic"></span>
+      <span class="kickoff-word">START PRACTICE</span>
+    </button>
+    <div class="quarter-box rank-box">
+      <div class="rank-grid">
+        <button class="rank-tile rank-bronze" data-skill="easy"><span class="rank-name">Bronze</span></button>
+        <button class="rank-tile rank-silver" data-skill="medium"><span class="rank-name">Silver</span></button>
+        <button class="rank-tile rank-gold" data-skill="hard"><span class="rank-name">Gold</span></button>
+        <button class="rank-tile rank-diamond" data-skill="expert"><span class="rank-name">Diamond</span></button>
+        <button class="rank-tile rank-platinum" data-skill="legendary"><span class="rank-name">Platinum</span></button>
+        <button class="rank-tile rank-champion" data-skill="champion"><span class="rank-name">Champion</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CAREER: SAVE SLOTS - six boxes filling the whole screen (top row/bottom
+     row of three), same box system as the Match Setup screen, rather than a
+     small centred card - each box is one save slot. -->
+<div id="career-slots-screen" class="screen hidden match-setup-custom custom-setup-screen career-slots-screen">
+  <div id="career-slots-top" class="setup-top-row"></div>
+  <div id="career-slots-bottom" class="setup-bottom-row"></div>
+  <div class="career-slots-banner">CAREER SAVES</div>
+</div>
+
+<!-- CAREER: NEW SAVE CLUB PICKER -->
+<div id="career-club-screen" class="screen hidden match-setup-custom custom-setup-screen">
+  <div class="setup-top-row">
+    <div class="quarter-box clock-box" id="career-league-box">
+      <span class="clock-title">League</span>
+      <div class="clock-controls">
+        <button id="career-league-prev" class="team-arrow" aria-label="Previous league">&#10094;</button>
+        <div class="clock-dial">
+          <span id="career-league-label" class="clock-value">Premier League</span>
+        </div>
+        <button id="career-league-next" class="team-arrow" aria-label="Next league">&#10095;</button>
+      </div>
+    </div>
+    <div class="team-box" id="career-team-box">
+      <button id="career-team-prev" class="team-arrow" aria-label="Previous team">&#10094;</button>
+      <span id="career-team-name" class="team-box-name">Team</span>
+      <button id="career-team-next" class="team-arrow" aria-label="Next team">&#10095;</button>
+    </div>
+  </div>
+  <div class="setup-bottom-row">
+    <div class="quarter-box clock-box">
+      <span class="clock-title">Half Length</span>
+      <div class="clock-controls">
+        <button id="career-half-prev" class="team-arrow" aria-label="Shorter half">&#10094;</button>
+        <div class="clock-dial">
+          <span id="career-half-label" class="clock-value">2 min</span>
+        </div>
+        <button id="career-half-next" class="team-arrow" aria-label="Longer half">&#10095;</button>
+      </div>
+      <button id="btn-career-club-back" class="back-btn-overlap">Back</button>
+    </div>
+    <button id="btn-start-career" class="quarter-box kickoff-box">
+      <span class="kickoff-word">START CAREER</span>
+    </button>
+    <div class="quarter-box rank-box">
+      <div class="rank-grid">
+        <button class="rank-tile rank-bronze" data-skill="easy"><span class="rank-name">Bronze</span></button>
+        <button class="rank-tile rank-silver" data-skill="medium"><span class="rank-name">Silver</span></button>
+        <button class="rank-tile rank-gold" data-skill="hard"><span class="rank-name">Gold</span></button>
+        <button class="rank-tile rank-diamond" data-skill="expert"><span class="rank-name">Diamond</span></button>
+        <button class="rank-tile rank-platinum" data-skill="legendary"><span class="rank-name">Platinum</span></button>
+        <button class="rank-tile rank-champion" data-skill="champion"><span class="rank-name">Champion</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CAREER: DASHBOARD - same box system as the Match Setup screen: your club
+     and next fixture up top (like the two team boxes). Bottom row: Squad
+     (left, leads to the lineup screen) / Play+Sim split box (middle) /
+     Transfer Market (right). -->
+<div id="career-dashboard-screen" class="screen hidden match-setup-custom custom-setup-screen">
+  <div class="setup-top-row">
+    <div class="team-box career-history-box" id="career-club-box">
+      <div class="career-box-stack">
+        <span class="clock-title">History</span>
+        <span id="career-dashboard-title" class="team-box-name">Club</span>
+        <span id="career-club-league" class="clock-title"></span>
+        <div id="career-dashboard-stats"></div>
+      </div>
+    </div>
+    <div class="team-box" id="career-fixture-box">
+      <div class="career-box-stack">
+        <span class="clock-title">Next Fixture</span>
+        <span id="career-fixture-competition" class="career-fixture-competition"></span>
+        <span id="career-next-fixture" class="team-box-name"></span>
+      </div>
+      <button id="btn-career-table" class="table-btn-overlap">Table</button>
+    </div>
+  </div>
+  <div class="setup-bottom-row">
+    <div class="quarter-box career-squad-box">
+      <button id="btn-career-squad" class="squad-open-btn">
+        <span class="kickoff-word">SQUAD</span>
+      </button>
+      <button id="btn-career-save-exit" class="back-btn-overlap">Save &amp; Exit</button>
+    </div>
+    <div class="quarter-box career-split-box">
+      <button id="btn-career-play" class="career-split-half kickoff-box">
+        <span class="kickoff-word">PLAY</span>
+      </button>
+      <button id="btn-career-sim" class="career-split-half career-sim-box">
+        <span class="kickoff-word">SIM</span>
+      </button>
+    </div>
+    <button id="btn-career-transfers" class="quarter-box career-transfer-box">
+      <span class="career-transfer-graphic">&#128260;</span>
+      <span class="kickoff-word">TRANSFERS</span>
+      <span id="career-offers-badge" class="career-offers-badge hidden"></span>
+    </button>
+  </div>
+</div>
+
+<!-- CAREER: LINEUP - your starting XI static on a pitch in formation (left
+     3/5), subs/reserves scrollable on the right (2/5). -->
+<div id="career-lineup-screen" class="screen hidden theme-career career-lineup-screen">
+  <div class="career-lineup-body">
+    <div class="formation-pitch" id="formation-pitch"></div>
+    <div class="career-reserves-panel">
+      <h2>Subs &amp; Reserves</h2>
+      <div id="career-reserves-list" class="career-list"></div>
+      <div class="career-formation-picker">
+        <button id="btn-formation-prev" aria-label="Previous formation">&#10094;</button>
+        <span id="career-formation-label">4-3-3</span>
+        <button id="btn-formation-next" aria-label="Next formation">&#10095;</button>
+      </div>
+      <button id="btn-lineup-auto" class="career-lineup-auto-btn">Auto-Pick XI</button>
+    </div>
+  </div>
+  <button id="btn-career-lineup-back" class="career-back-btn">Back</button>
+</div>
+
+<!-- CAREER: LEAGUE TABLE - your real record plus every other club's
+     estimated standing (see generateLeagueTableEstimate), sorted together. -->
+<div id="career-table-screen" class="screen hidden theme-career career-market-screen">
+  <div class="career-slots-banner career-market-banner">LEAGUE TABLE</div>
+  <div class="career-table-wrap">
+    <table class="career-table">
+      <thead><tr><th>#</th><th>Club</th><th>Pts</th><th>GD</th></tr></thead>
+      <tbody id="career-table-body"></tbody>
+    </table>
+  </div>
+  <button id="btn-career-table-back" class="career-back-btn">Back</button>
+</div>
+
+<!-- CAREER: SEASON HISTORY - one collapsed row per completed season, click
+     to expand its full stats (see renderCareerHistoryScreen). -->
+<div id="career-history-screen" class="screen hidden theme-career career-market-screen">
+  <div class="career-slots-banner career-market-banner">SEASON HISTORY</div>
+  <div id="career-history-list" class="career-history-list"></div>
+  <button id="btn-career-history-back" class="career-back-btn">Back</button>
+</div>
+
+<!-- CAREER: TRANSFER MARKET - four independently-scrollable columns
+     (Goalkeepers/Defenders/Midfielders/Attackers), each 1/4 of the width. -->
+<div id="career-transfer-screen" class="screen hidden theme-career career-market-screen">
+  <div class="career-slots-banner career-market-banner">TRANSFER MARKET</div>
+  <div id="career-budget-display" class="career-fixture-pill career-market-budget"></div>
+  <div class="career-market-tabs">
+    <button id="btn-market-tab-buy" class="career-market-tab-btn active">Buy</button>
+    <button id="btn-market-tab-offers" class="career-market-tab-btn">Offers Received</button>
+  </div>
+  <div id="career-market-buy-panel">
+    <div id="career-market-filters" class="career-market-filters"></div>
+    <div class="career-market-columns">
+      <div class="career-market-col">
+        <h3>Goalkeepers</h3>
+        <div id="career-market-gk" class="career-market-col-list"></div>
+      </div>
+      <div class="career-market-col">
+        <h3>Defenders</h3>
+        <div id="career-market-def" class="career-market-col-list"></div>
+      </div>
+      <div class="career-market-col">
+        <h3>Midfielders</h3>
+        <div id="career-market-mid" class="career-market-col-list"></div>
+      </div>
+      <div class="career-market-col">
+        <h3>Attackers</h3>
+        <div id="career-market-fwd" class="career-market-col-list"></div>
+      </div>
+    </div>
+  </div>
+  <div id="career-offers-list" class="career-offers-list hidden"></div>
+  <button id="btn-career-transfer-back" class="career-back-btn">Back</button>
+</div>
+
+<!-- ONLINE: MODE PICKER -->
+<div id="online-menu-screen" class="screen hidden theme-online">
+  <span class="screen-watermark">&#127760;</span>
+  <div class="setup-card">
+    <span class="setup-icon">&#127760;</span>
+    <h1>ONLINE</h1>
+    <p class="hint-text">Play a friend on a different network - host gets a short room code to share, your friend types it in to join.</p>
+    <button id="btn-online-host" class="btn-primary">Host Game</button>
+    <button id="btn-online-join" class="btn-primary">Join Game</button>
+    <button id="btn-online-back">Back to Menu</button>
+  </div>
+</div>
+
+<!-- ONLINE: HOST -->
+<div id="online-host-screen" class="screen hidden theme-online">
+  <span class="screen-watermark">&#127760;</span>
+  <div class="setup-card">
+    <span class="setup-icon">&#127760;</span>
+    <h1>HOST GAME</h1>
+    <p class="hint-text">Send this code to your friend - they'll type it in on their own Join Game screen.</p>
+    <input id="online-host-code" class="online-room-code" readonly>
+    <button id="btn-online-host-copy">Copy Code</button>
+    <p id="online-host-status" class="hint-text"></p>
+    <button id="btn-online-host-back">Back to Menu</button>
+  </div>
+</div>
+
+<!-- ONLINE: JOIN -->
+<div id="online-join-screen" class="screen hidden theme-online">
+  <span class="screen-watermark">&#127760;</span>
+  <div class="setup-card">
+    <span class="setup-icon">&#127760;</span>
+    <h1>JOIN GAME</h1>
+    <p class="hint-text">Type in the code your friend sent you.</p>
+    <input id="online-join-code-input" class="online-room-code" maxlength="4" autocapitalize="characters" autocomplete="off" placeholder="CODE">
+    <button id="btn-online-join-submit" class="btn-primary">Join</button>
+    <p id="online-join-status" class="hint-text"></p>
+    <button id="btn-online-join-back">Back to Menu</button>
+  </div>
+</div>
+
+<!-- ONLINE: TEAM PICK - each side picks its own league + club (any of ALL_CLUBS,
+     same pool Career mode draws from - see onlineTeamPickList, which mirrors
+     careerClubSetupList's "filter by currently-selected league" approach).
+     The host additionally picks half-length (shared, since it governs both
+     sides' AI teammates), so that control is hidden on the guest's copy of this
+     same screen (see populateOnlineTeamPickScreen). Skill/difficulty isn't
+     picked here at all - this is a human-vs-human match, so it's fixed at
+     a sensible default (see ONLINE_DEFAULT_SKILL) rather than cluttering
+     the screen with a control that only affects AI teammates' behaviour. -->
+<div id="online-teampick-screen" class="screen hidden match-setup-custom custom-setup-screen">
+  <div class="setup-top-row">
+    <div class="quarter-box clock-box" id="online-league-box">
+      <span class="clock-title">League</span>
+      <div class="clock-controls">
+        <button id="online-league-prev" class="team-arrow" aria-label="Previous league">&#10094;</button>
+        <div class="clock-dial">
+          <span id="online-league-label" class="clock-value">Premier League</span>
+        </div>
+        <button id="online-league-next" class="team-arrow" aria-label="Next league">&#10095;</button>
+      </div>
+    </div>
+    <div class="team-box" id="online-team-box">
+      <button id="online-team-prev" class="team-arrow" aria-label="Previous team">&#10094;</button>
+      <span id="online-team-name" class="team-box-name">Team</span>
+      <button id="online-team-next" class="team-arrow" aria-label="Next team">&#10095;</button>
+    </div>
+  </div>
+  <div class="setup-bottom-row">
+    <div class="quarter-box clock-box" id="online-half-box">
+      <span class="clock-title">Half Length</span>
+      <div class="clock-controls">
+        <button id="online-half-prev" class="team-arrow" aria-label="Shorter half">&#10094;</button>
+        <div class="clock-dial">
+          <span id="online-half-label" class="clock-value">2 min</span>
+        </div>
+        <button id="online-half-next" class="team-arrow" aria-label="Longer half">&#10095;</button>
+      </div>
+      <button id="btn-online-teampick-back" class="back-btn-overlap">Back</button>
+    </div>
+    <button id="btn-online-ready" class="quarter-box kickoff-box">
+      <span class="kickoff-word" id="online-ready-word">READY</span>
+    </button>
+    <button id="btn-online-squad" class="quarter-box online-squad-box">
+      <span class="kickoff-word">SQUAD</span>
+    </button>
+  </div>
+  <p id="online-teampick-status" class="hint-text online-teampick-status"></p>
+</div>
+
+<!-- SETTINGS -->
+<div id="settings-screen" class="screen hidden theme-settings">
+  <span class="screen-watermark">&#9881;</span>
+  <div class="setup-card">
+    <span class="setup-icon">&#9881;</span>
+    <h1>SETTINGS</h1>
+
+    <div class="settings-section">
+      <h2>Sound</h2>
+      <div class="settings-row">
+        <label for="settings-volume">Volume</label>
+        <input type="range" id="settings-volume" min="0" max="100" value="100">
+      </div>
+      <div class="settings-row">
+        <label for="settings-mute">Muted</label>
+        <input type="checkbox" id="settings-mute">
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h2>Kit Clash Sensitivity</h2>
+      <p class="hint-text">High sensitivity swaps the opposition's kit even when the colours are only somewhat similar - useful if two kits are hard to tell apart at a glance.</p>
+      <div class="settings-row settings-toggle-group">
+        <button id="kit-sensitivity-normal" class="settings-toggle-btn" data-level="normal">Normal</button>
+        <button id="kit-sensitivity-high" class="settings-toggle-btn" data-level="high">High</button>
+        <button id="kit-sensitivity-colorblind" class="settings-toggle-btn" data-level="colorblind">Colour-blind</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h2>Controls</h2>
+      <p class="hint-text">Click a key, then press its replacement.</p>
+      <div id="keybind-list"></div>
+    </div>
+
+    <button id="btn-settings-back" class="btn-primary">Back to Menu</button>
+  </div>
+</div>
+
+<!-- LIFETIME STATS / TROPHY CABINET -->
+<div id="stats-screen" class="screen hidden theme-stats">
+  <span class="screen-watermark">&#127942;</span>
+  <div class="setup-card">
+    <span class="setup-icon">&#127942;</span>
+    <h1>CAREER STATS</h1>
+    <div id="stats-grid"></div>
+    <button id="btn-stats-back" class="btn-primary">Back to Menu</button>
+  </div>
 </div>
 
 <!-- MATCH SETUP -->
-<div id="setup-screen" class="screen hidden">
-  <h1>MATCH SETUP</h1>
-
-  <div class="setup-row">
-    <label for="team-select">Your Team</label>
-    <select id="team-select"></select>
+<div id="setup-screen" class="screen hidden match-setup-custom custom-setup-screen">
+  <div class="setup-top-row">
+    <div class="team-box" id="setup-team-box">
+      <button id="setup-team-prev" class="team-arrow" aria-label="Previous team">&#10094;</button>
+      <span id="setup-team-name" class="team-box-name">Team</span>
+      <button id="setup-team-next" class="team-arrow" aria-label="Next team">&#10095;</button>
+    </div>
+    <div class="team-box" id="setup-opp-box">
+      <button id="setup-opp-prev" class="team-arrow" aria-label="Previous team">&#10094;</button>
+      <span id="setup-opp-name" class="team-box-name">Team</span>
+      <button id="setup-opp-next" class="team-arrow" aria-label="Next team">&#10095;</button>
+    </div>
   </div>
-
-  <div class="setup-row">
-    <label for="opp-select">Opponent Team</label>
-    <select id="opp-select"></select>
+  <div class="setup-bottom-row">
+    <div class="quarter-box clock-box">
+      <span class="clock-title">Half Length</span>
+      <div class="clock-controls">
+        <button id="setup-half-prev" class="team-arrow" aria-label="Shorter half">&#10094;</button>
+        <div class="clock-dial">
+          <span id="setup-half-label" class="clock-value">2 min</span>
+        </div>
+        <button id="setup-half-next" class="team-arrow" aria-label="Longer half">&#10095;</button>
+      </div>
+      <button id="btn-back-menu" class="back-btn-overlap">Back</button>
+    </div>
+    <button id="btn-start-match" class="quarter-box kickoff-box">
+      <span class="kickoff-word">KICK-OFF</span>
+    </button>
+    <div class="quarter-box rank-box">
+      <div class="rank-grid">
+        <button class="rank-tile rank-bronze" data-skill="easy"><span class="rank-name">Bronze</span></button>
+        <button class="rank-tile rank-silver" data-skill="medium"><span class="rank-name">Silver</span></button>
+        <button class="rank-tile rank-gold" data-skill="hard"><span class="rank-name">Gold</span></button>
+        <button class="rank-tile rank-diamond" data-skill="expert"><span class="rank-name">Diamond</span></button>
+        <button class="rank-tile rank-platinum" data-skill="legendary"><span class="rank-name">Platinum</span></button>
+        <button class="rank-tile rank-champion" data-skill="champion"><span class="rank-name">Champion</span></button>
+      </div>
+    </div>
   </div>
-
-  <div class="setup-row">
-    <label for="half-select">Half Length</label>
-    <select id="half-select">
-      <option value="1">1 minute</option>
-      <option value="2" selected>2 minutes</option>
-      <option value="3">3 minutes</option>
-      <option value="5">5 minutes</option>
-      <option value="10">10 minutes</option>
-    </select>
-  </div>
-
-  <div class="setup-row">
-    <label for="skill-select">AI Skill Level</label>
-    <select id="skill-select">
-      <option value="easy">Easy</option>
-      <option value="medium" selected>Medium</option>
-      <option value="hard">Hard</option>
-    </select>
-  </div>
-
-  <button id="btn-start-match">Kick Off</button>
-  <button id="btn-back-menu">Back</button>
 </div>
 
 <!-- MATCH SCREEN -->
 <div id="match-screen" class="screen hidden">
 
   <div id="scoreboard">
-    <span id="score-home-name">HOME</span>
-    <span id="score-home">0</span>
-    <span class="dash">-</span>
-    <span id="score-away">0</span>
-    <span id="score-away-name">AWAY</span>
-    <span id="match-clock">00:00</span>
-    <span id="half-label">1st Half</span>
-    <button id="btn-pause">Pause (P)</button>
+    <div id="score-panel-home" class="score-panel">
+      <div class="card-indicator" id="cards-home-wrap">
+        <button id="cards-home-btn" class="card-badge hidden">&#x1F7E8;<span id="cards-home-count">0</span></button>
+        <div id="cards-home-list" class="card-dropdown hidden"></div>
+      </div>
+      <span id="score-home-name" class="team-name">HOME</span>
+      <span id="score-home" class="score-num">0</span>
+    </div>
+    <div id="score-center">
+      <span id="match-clock">00:00</span>
+      <span id="half-label">1st Half</span>
+      <span id="weather-label" class="hidden">&#127783;&#65039; Rain</span>
+      <button id="btn-mute" aria-label="Mute">&#128266;</button>
+      <button id="btn-pause" aria-label="Pause"><span class="pause-icon"></span></button>
+    </div>
+    <div id="score-panel-away" class="score-panel">
+      <span id="score-away" class="score-num">0</span>
+      <span id="score-away-name" class="team-name">AWAY</span>
+      <div class="card-indicator" id="cards-away-wrap">
+        <button id="cards-away-btn" class="card-badge hidden">&#x1F7E8;<span id="cards-away-count">0</span></button>
+        <div id="cards-away-list" class="card-dropdown hidden"></div>
+      </div>
+    </div>
   </div>
 
-  <canvas id="pitch" width="1130" height="760"></canvas>
+  <div id="pitch-wrap">
+    <canvas id="pitch" width="1130" height="760"></canvas>
+  </div>
 
   <button id="btn-toggle-input">Touch Controls</button>
 
@@ -74,15 +599,16 @@
     <button id="controls-toggle">Controls &#9656;</button>
     <div id="controls-body" class="hidden">
       <table>
-        <tr><td>Move Up</td><td>W</td></tr>
-        <tr><td>Move Down</td><td>S</td></tr>
-        <tr><td>Move Left</td><td>A</td></tr>
-        <tr><td>Move Right</td><td>D</td></tr>
-        <tr><td>Pass (hold for power, max 2s)</td><td>J</td></tr>
-        <tr><td>Shoot (hold for power, max 2s)</td><td>K</td></tr>
-        <tr><td>Tackle</td><td>L</td></tr>
-        <tr><td>Switch Player (when not in possession)</td><td>Q</td></tr>
-        <tr><td>Pause / Resume</td><td>P</td></tr>
+        <tr><td>Move Up</td><td id="key-hint-up">W</td></tr>
+        <tr><td>Move Down</td><td id="key-hint-down">S</td></tr>
+        <tr><td>Move Left</td><td id="key-hint-left">A</td></tr>
+        <tr><td>Move Right</td><td id="key-hint-right">D</td></tr>
+        <tr><td>Pass (hold for power, max 2s)</td><td id="key-hint-pass">J</td></tr>
+        <tr><td>Shoot (hold for power, max 2s)</td><td id="key-hint-shoot">K</td></tr>
+        <tr><td>Tackle</td><td id="key-hint-tackle">L</td></tr>
+        <tr><td>Switch Player (when not in possession)</td><td id="key-hint-switchPlayer">Q</td></tr>
+        <tr><td>Call Teammate Run (when in possession)</td><td id="key-hint-run">R</td></tr>
+        <tr><td>Pause / Resume</td><td id="key-hint-pause">P</td></tr>
       </table>
     </div>
   </div>
@@ -95,6 +621,7 @@
       </div>
     </div>
     <div id="touch-actions">
+      <button id="td-run" class="action-btn run-btn">Run</button>
       <button id="td-switch" class="action-btn">Switch</button>
       <button id="td-tackle" class="action-btn">Tackle</button>
       <button id="td-pass" class="action-btn">Pass</button>
@@ -102,12 +629,35 @@
     </div>
   </div>
 
+  <!-- GOAL CELEBRATION BANNER -->
+  <div id="goal-banner" class="overlay hidden">
+    <div class="overlay-box goal-box">
+      <h2 id="goal-banner-text">GOAL!</h2>
+    </div>
+  </div>
+
+  <!-- Shown briefly right after a goal while the build-up replays in slow
+       motion - see startGoalReplay/stepGoalReplay in game.js. -->
+  <div id="replay-badge" class="hidden">&#9654; REPLAY</div>
+
   <!-- PAUSE OVERLAY -->
   <div id="pause-overlay" class="overlay hidden">
     <div class="overlay-box">
       <h2>PAUSED</h2>
       <button id="btn-resume">Resume (P)</button>
+      <button id="btn-subs">Substitutions</button>
       <button id="btn-quit-to-menu">Quit to Main Menu</button>
+    </div>
+  </div>
+
+  <!-- ONLINE: CONNECTION LOST - shown mid-match if the peer-to-peer link
+       fails or closes unexpectedly (not shown for a deliberate local quit -
+       see showConnectionLostOverlay/teardownOnline). -->
+  <div id="online-lost-overlay" class="overlay hidden">
+    <div class="overlay-box">
+      <h2>CONNECTION LOST</h2>
+      <p class="hint-text">The connection to your friend dropped.</p>
+      <button id="btn-online-lost-menu">Return to Main Menu</button>
     </div>
   </div>
 
@@ -116,7 +666,23 @@
     <div class="overlay-box">
       <h2>HALF TIME</h2>
       <p id="halftime-timer">30</p>
+      <button id="btn-subs-halftime">Substitutions</button>
       <button id="btn-continue-halftime">Continue</button>
+    </div>
+  </div>
+
+  <!-- SUBSTITUTIONS OVERLAY -->
+  <div id="subs-overlay" class="overlay hidden">
+    <div class="overlay-box">
+      <h2>SUBSTITUTIONS</h2>
+      <p id="subs-remaining"></p>
+      <p class="hint-text">Pick a player to sub off, then a bench player to bring on.</p>
+      <div class="subs-col-label">On Pitch</div>
+      <div id="subs-onpitch" class="subs-list"></div>
+      <div class="subs-col-label">Bench</div>
+      <div id="subs-bench" class="subs-list"></div>
+      <p id="subs-bench-hint" class="hint-text hidden">Select a player to sub off first.</p>
+      <button id="btn-subs-close">Done</button>
     </div>
   </div>
 
@@ -125,11 +691,71 @@
     <div class="overlay-box">
       <h2>FULL TIME</h2>
       <p id="fulltime-score"></p>
+      <p id="fulltime-motm" class="motm-line hidden"></p>
+      <table id="fulltime-stats"></table>
+      <div id="fulltime-achievements"></div>
+      <button id="btn-rematch">Rematch</button>
+      <button id="btn-continue-season" class="hidden">Continue Season</button>
+      <button id="btn-continue-cup" class="hidden">Continue Cup</button>
+      <button id="btn-continue-career" class="hidden">Continue Career</button>
       <button id="btn-fulltime-menu">Return to Main Menu</button>
     </div>
   </div>
 
+  <!-- CAREER: SEASON COMPLETE OVERLAY - shown once a career season's fixture
+       list runs out (see endCareerSeason/showSeasonCompleteOverlay), instead
+       of silently continuing straight to the dashboard. Has to be closed. -->
+  <div id="season-complete-overlay" class="overlay hidden">
+    <div class="overlay-box">
+      <h2>SEASON COMPLETE</h2>
+      <p id="season-complete-club"></p>
+      <div id="season-complete-stats" class="season-stat-row"></div>
+      <div id="season-complete-trophies"></div>
+      <button id="btn-season-complete-continue">Continue</button>
+    </div>
+  </div>
+
+  <!-- PENALTY SHOOTOUT OVERLAY -->
+  <div id="shootout-overlay" class="overlay hidden">
+    <div class="overlay-box">
+      <h2>PENALTY SHOOTOUT</h2>
+      <div id="shootout-scoreline">
+        <div class="shootout-side">
+          <span id="shootout-home-name" class="shootout-side-name"></span>
+          <span id="shootout-home-score" class="shootout-score-num">0</span>
+          <div id="shootout-home-dots" class="pk-dots"></div>
+        </div>
+        <div class="shootout-side">
+          <span id="shootout-away-name" class="shootout-side-name"></span>
+          <span id="shootout-away-score" class="shootout-score-num">0</span>
+          <div id="shootout-away-dots" class="pk-dots"></div>
+        </div>
+      </div>
+      <p id="shootout-prompt"></p>
+      <div id="shootout-power-bar"><div id="shootout-power-fill"></div></div>
+      <button id="btn-shootout-kick">Hold to Kick</button>
+    </div>
+  </div>
+
 </div>
+
+<!-- Shown only on narrow, portrait touchscreens while a match is on screen -->
+<div id="rotate-hint" class="enabled">
+  <div class="overlay-box">
+    <div class="rotate-icon">&#8635;</div>
+    <p>Rotate your phone sideways for the best view of the pitch</p>
+    <button id="btn-rotate-dismiss">Play Anyway</button>
+  </div>
+</div>
+
+<!-- Goal celebration confetti, bursts from both bottom corners -->
+<div id="confetti-layer"></div>
+
+<!-- Foul/card/offside notifications -->
+<div id="toast-banner"></div>
+
+<!-- Recent goals/cards/subs, newest on top - a toast is easy to miss, this stays up -->
+<div id="event-ticker"></div>
 
 <script src="game.js"></script>
 </body>

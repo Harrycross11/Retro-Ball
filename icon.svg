@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Green background, rounded like a standard app icon -->
+  <rect width="512" height="512" rx="96" fill="#2e7d32"/>
+
+  <!-- RETRO / BALL, big and bold - the whole icon, no separate graphic -->
+  <text x="256" y="245" font-family="'Courier New', monospace" font-size="120" font-weight="bold"
+        fill="#ffffff" text-anchor="middle" letter-spacing="6"
+        style="text-shadow:3px 3px 0 rgba(0,0,0,0.35)">RETRO</text>
+  <text x="256" y="385" font-family="'Courier New', monospace" font-size="120" font-weight="bold"
+        fill="#ffffff" text-anchor="middle" letter-spacing="6"
+        style="text-shadow:3px 3px 0 rgba(0,0,0,0.35)">BALL</text>
+
+  <rect width="512" height="512" rx="96" fill="none" stroke="#ffffff" stroke-opacity="0.15" stroke-width="8"/>
+</svg>
