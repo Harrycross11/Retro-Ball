@@ -28,35 +28,44 @@
     <button id="btn-stats" class="menu-corner-btn" aria-label="Lifetime stats">&#127942;</button>
     <button id="btn-settings" class="menu-corner-btn" aria-label="Settings">&#9881;</button>
   </div>
+  <!-- Only shown when a Career save exists (see updateMenuContinueCareerCard)
+       - skips Main Menu -> Career -> pick slot -> dashboard down to one tap
+       for whichever save was most recently played. -->
+  <button id="btn-menu-continue-career" class="menu-continue-card hidden">
+    <span class="menu-continue-label">Continue Career</span>
+    <span id="menu-continue-club" class="menu-continue-club"></span>
+    <span id="menu-continue-detail" class="menu-continue-detail"></span>
+  </button>
   <button id="btn-play" class="menu-panel panel-play">
-    <span class="panel-icon">&#9917;</span>
     <span class="panel-label">Play</span>
   </button>
   <button id="btn-season" class="menu-panel panel-season">
-    <span class="panel-icon">&#128197;</span>
     <span class="panel-label">Season</span>
   </button>
   <button id="btn-cup" class="menu-panel panel-cup">
-    <span class="panel-icon">&#127942;</span>
     <span class="panel-label">Cup</span>
   </button>
   <button id="btn-practice" class="menu-panel panel-practice">
-    <span class="panel-icon">&#127919;</span>
     <span class="panel-label">Practice</span>
   </button>
   <button id="btn-career" class="menu-panel panel-career">
-    <span class="panel-icon">&#128188;</span>
     <span class="panel-label">Career</span>
   </button>
   <button id="btn-online" class="menu-panel panel-online">
-    <span class="panel-icon">&#127760;</span>
     <span class="panel-label">Online</span>
   </button>
   <button id="btn-exit" class="menu-panel panel-exit">
-    <span class="panel-icon">&#128682;</span>
     <span class="panel-label">Exit Game</span>
   </button>
 </div>
+
+<!-- Persistent shortcut back to the main menu from any deep screen (Settings,
+     Career sub-screens, Online sub-screens, etc.) - hidden on the main menu
+     itself (redundant there) and during an active match (already has its own
+     deliberate Pause -> Quit to Main Menu flow, see pause-overlay) so it can
+     never accidentally abandon a live match with a stray tap - see
+     showScreen, which toggles this. -->
+<button id="btn-home" class="menu-corner-btn home-corner-btn hidden" aria-label="Main menu">&#127968;</button>
 
 <!-- SEASON SETUP -->
 <div id="season-setup-screen" class="screen hidden match-setup-custom custom-setup-screen">
@@ -89,12 +98,12 @@
     </button>
     <div class="quarter-box rank-box">
       <div class="rank-grid">
-        <button class="rank-tile rank-bronze" data-skill="easy"><span class="rank-name">Bronze</span></button>
-        <button class="rank-tile rank-silver" data-skill="medium"><span class="rank-name">Silver</span></button>
-        <button class="rank-tile rank-gold" data-skill="hard"><span class="rank-name">Gold</span></button>
-        <button class="rank-tile rank-diamond" data-skill="expert"><span class="rank-name">Diamond</span></button>
-        <button class="rank-tile rank-platinum" data-skill="legendary"><span class="rank-name">Platinum</span></button>
-        <button class="rank-tile rank-champion" data-skill="champion"><span class="rank-name">Champion</span></button>
+        <button class="rank-tile rank-bronze" data-skill="hard"><span class="rank-name">Bronze</span></button>
+        <button class="rank-tile rank-silver" data-skill="expert"><span class="rank-name">Silver</span></button>
+        <button class="rank-tile rank-gold" data-skill="legendary"><span class="rank-name">Gold</span></button>
+        <button class="rank-tile rank-diamond" data-skill="champion"><span class="rank-name">Diamond</span></button>
+        <button class="rank-tile rank-platinum" data-skill="grandmaster"><span class="rank-name">Platinum</span></button>
+        <button class="rank-tile rank-champion" data-skill="legend"><span class="rank-name">Champion</span></button>
       </div>
     </div>
   </div>
@@ -102,9 +111,7 @@
 
 <!-- SEASON TABLE -->
 <div id="season-table-screen" class="screen hidden theme-season">
-  <span class="screen-watermark">&#128197;</span>
   <div class="setup-card">
-    <span class="setup-icon">&#128197;</span>
     <h1>SEASON</h1>
     <div id="season-record"></div>
     <div id="season-fixtures"></div>
@@ -140,12 +147,12 @@
     </button>
     <div class="quarter-box rank-box">
       <div class="rank-grid">
-        <button class="rank-tile rank-bronze" data-skill="easy"><span class="rank-name">Bronze</span></button>
-        <button class="rank-tile rank-silver" data-skill="medium"><span class="rank-name">Silver</span></button>
-        <button class="rank-tile rank-gold" data-skill="hard"><span class="rank-name">Gold</span></button>
-        <button class="rank-tile rank-diamond" data-skill="expert"><span class="rank-name">Diamond</span></button>
-        <button class="rank-tile rank-platinum" data-skill="legendary"><span class="rank-name">Platinum</span></button>
-        <button class="rank-tile rank-champion" data-skill="champion"><span class="rank-name">Champion</span></button>
+        <button class="rank-tile rank-bronze" data-skill="hard"><span class="rank-name">Bronze</span></button>
+        <button class="rank-tile rank-silver" data-skill="expert"><span class="rank-name">Silver</span></button>
+        <button class="rank-tile rank-gold" data-skill="legendary"><span class="rank-name">Gold</span></button>
+        <button class="rank-tile rank-diamond" data-skill="champion"><span class="rank-name">Diamond</span></button>
+        <button class="rank-tile rank-platinum" data-skill="grandmaster"><span class="rank-name">Platinum</span></button>
+        <button class="rank-tile rank-champion" data-skill="legend"><span class="rank-name">Champion</span></button>
       </div>
     </div>
   </div>
@@ -153,9 +160,7 @@
 
 <!-- CUP PROGRESS -->
 <div id="cup-progress-screen" class="screen hidden theme-cup">
-  <span class="screen-watermark">&#127942;</span>
   <div class="setup-card">
-    <span class="setup-icon">&#127942;</span>
     <h1>CUP</h1>
     <div id="cup-status"></div>
     <div id="cup-rounds"></div>
@@ -191,12 +196,12 @@
     </button>
     <div class="quarter-box rank-box">
       <div class="rank-grid">
-        <button class="rank-tile rank-bronze" data-skill="easy"><span class="rank-name">Bronze</span></button>
-        <button class="rank-tile rank-silver" data-skill="medium"><span class="rank-name">Silver</span></button>
-        <button class="rank-tile rank-gold" data-skill="hard"><span class="rank-name">Gold</span></button>
-        <button class="rank-tile rank-diamond" data-skill="expert"><span class="rank-name">Diamond</span></button>
-        <button class="rank-tile rank-platinum" data-skill="legendary"><span class="rank-name">Platinum</span></button>
-        <button class="rank-tile rank-champion" data-skill="champion"><span class="rank-name">Champion</span></button>
+        <button class="rank-tile rank-bronze" data-skill="hard"><span class="rank-name">Bronze</span></button>
+        <button class="rank-tile rank-silver" data-skill="expert"><span class="rank-name">Silver</span></button>
+        <button class="rank-tile rank-gold" data-skill="legendary"><span class="rank-name">Gold</span></button>
+        <button class="rank-tile rank-diamond" data-skill="champion"><span class="rank-name">Diamond</span></button>
+        <button class="rank-tile rank-platinum" data-skill="grandmaster"><span class="rank-name">Platinum</span></button>
+        <button class="rank-tile rank-champion" data-skill="legend"><span class="rank-name">Champion</span></button>
       </div>
     </div>
   </div>
@@ -247,12 +252,12 @@
     </button>
     <div class="quarter-box rank-box">
       <div class="rank-grid">
-        <button class="rank-tile rank-bronze" data-skill="easy"><span class="rank-name">Bronze</span></button>
-        <button class="rank-tile rank-silver" data-skill="medium"><span class="rank-name">Silver</span></button>
-        <button class="rank-tile rank-gold" data-skill="hard"><span class="rank-name">Gold</span></button>
-        <button class="rank-tile rank-diamond" data-skill="expert"><span class="rank-name">Diamond</span></button>
-        <button class="rank-tile rank-platinum" data-skill="legendary"><span class="rank-name">Platinum</span></button>
-        <button class="rank-tile rank-champion" data-skill="champion"><span class="rank-name">Champion</span></button>
+        <button class="rank-tile rank-bronze" data-skill="hard"><span class="rank-name">Bronze</span></button>
+        <button class="rank-tile rank-silver" data-skill="expert"><span class="rank-name">Silver</span></button>
+        <button class="rank-tile rank-gold" data-skill="legendary"><span class="rank-name">Gold</span></button>
+        <button class="rank-tile rank-diamond" data-skill="champion"><span class="rank-name">Diamond</span></button>
+        <button class="rank-tile rank-platinum" data-skill="grandmaster"><span class="rank-name">Platinum</span></button>
+        <button class="rank-tile rank-champion" data-skill="legend"><span class="rank-name">Champion</span></button>
       </div>
     </div>
   </div>
@@ -279,15 +284,17 @@
         <span id="career-next-fixture" class="team-box-name"></span>
       </div>
       <button id="btn-career-table" class="table-btn-overlap">Table</button>
+      <!-- Only shown once a season has actually finished (see
+           renderCareerDashboard's lastSeasonSummary check) - previously the
+           summary only ever showed up as a side-effect of specific buttons,
+           so it could go unseen entirely if you backed out first. -->
+      <button id="career-season-summary-badge" class="career-season-summary-badge hidden">Season Complete - View Summary</button>
     </div>
   </div>
   <div class="setup-bottom-row">
-    <div class="quarter-box career-squad-box">
-      <button id="btn-career-squad" class="squad-open-btn">
-        <span class="kickoff-word">SQUAD</span>
-      </button>
-      <button id="btn-career-save-exit" class="back-btn-overlap">Save &amp; Exit</button>
-    </div>
+    <!-- Play/Sim leads the row as the primary action; Squad + Transfers
+         (both squad-management tasks) now sit grouped together next to each
+         other, rather than Play/Sim splitting them apart. -->
     <div class="quarter-box career-split-box">
       <button id="btn-career-play" class="career-split-half kickoff-box">
         <span class="kickoff-word">PLAY</span>
@@ -296,8 +303,13 @@
         <span class="kickoff-word">SIM</span>
       </button>
     </div>
+    <div class="quarter-box career-squad-box">
+      <button id="btn-career-squad" class="squad-open-btn">
+        <span class="kickoff-word">SQUAD</span>
+      </button>
+      <button id="btn-career-save-exit" class="back-btn-overlap">Save &amp; Exit</button>
+    </div>
     <button id="btn-career-transfers" class="quarter-box career-transfer-box">
-      <span class="career-transfer-graphic">&#128260;</span>
       <span class="kickoff-word">TRANSFERS</span>
       <span id="career-offers-badge" class="career-offers-badge hidden"></span>
     </button>
@@ -340,7 +352,18 @@
      to expand its full stats (see renderCareerHistoryScreen). -->
 <div id="career-history-screen" class="screen hidden theme-career career-market-screen">
   <div class="career-slots-banner career-market-banner">SEASON HISTORY</div>
-  <div id="career-history-list" class="career-history-list"></div>
+  <div class="career-history-body">
+    <!-- Every game played, opponent/score/competition/result - see
+         pushCareerMatchLog/renderCareerMatchLog. -->
+    <div class="career-history-col">
+      <h3>Match Log</h3>
+      <div id="career-matchlog-list" class="career-matchlog-list"></div>
+    </div>
+    <div class="career-history-col">
+      <h3>Seasons</h3>
+      <div id="career-history-list" class="career-history-list"></div>
+    </div>
+  </div>
   <button id="btn-career-history-back" class="career-back-btn">Back</button>
 </div>
 
@@ -378,44 +401,62 @@
   <button id="btn-career-transfer-back" class="career-back-btn">Back</button>
 </div>
 
-<!-- ONLINE: MODE PICKER -->
-<div id="online-menu-screen" class="screen hidden theme-online">
-  <span class="screen-watermark">&#127760;</span>
-  <div class="setup-card">
-    <span class="setup-icon">&#127760;</span>
-    <h1>ONLINE</h1>
-    <p class="hint-text">Play a friend on a different network - host gets a short room code to share, your friend types it in to join.</p>
-    <button id="btn-online-host" class="btn-primary">Host Game</button>
-    <button id="btn-online-join" class="btn-primary">Join Game</button>
-    <button id="btn-online-back">Back to Menu</button>
+<!-- ONLINE: MODE PICKER - same "box design" grid as every other setup screen
+     (Play/Season/Cup/Practice/Career), rather than a single centered card. -->
+<div id="online-menu-screen" class="screen hidden match-setup-custom custom-setup-screen theme-online">
+  <div class="setup-top-row">
+    <button id="btn-online-host" class="quarter-box online-host-box">
+      <span class="kickoff-word">Host Game</span>
+    </button>
+    <button id="btn-online-join" class="quarter-box online-join-box">
+      <span class="kickoff-word">Join Game</span>
+    </button>
+  </div>
+  <div class="setup-bottom-row">
+    <div class="quarter-box online-hint-box">
+      <p class="hint-text">Play a friend on a different network - host gets a short room code to share, your friend types it in to join.</p>
+      <button id="btn-online-back" class="back-btn-overlap">Back</button>
+    </div>
   </div>
 </div>
 
 <!-- ONLINE: HOST -->
-<div id="online-host-screen" class="screen hidden theme-online">
-  <span class="screen-watermark">&#127760;</span>
-  <div class="setup-card">
-    <span class="setup-icon">&#127760;</span>
-    <h1>HOST GAME</h1>
-    <p class="hint-text">Send this code to your friend - they'll type it in on their own Join Game screen.</p>
-    <input id="online-host-code" class="online-room-code" readonly>
-    <button id="btn-online-host-copy">Copy Code</button>
-    <p id="online-host-status" class="hint-text"></p>
-    <button id="btn-online-host-back">Back to Menu</button>
+<div id="online-host-screen" class="screen hidden match-setup-custom custom-setup-screen theme-online">
+  <div class="setup-top-row">
+    <div class="quarter-box online-code-box">
+      <span class="clock-title">Your Room Code</span>
+      <input id="online-host-code" class="online-room-code" readonly>
+      <p class="hint-text">Send this to your friend - they'll type it in on their own Join Game screen.</p>
+    </div>
+  </div>
+  <div class="setup-bottom-row">
+    <button id="btn-online-host-copy" class="quarter-box online-action-box">
+      <span class="kickoff-word">Copy Code</span>
+    </button>
+    <div class="quarter-box online-status-box">
+      <p id="online-host-status" class="hint-text"></p>
+      <button id="btn-online-host-back" class="back-btn-overlap">Back</button>
+    </div>
   </div>
 </div>
 
 <!-- ONLINE: JOIN -->
-<div id="online-join-screen" class="screen hidden theme-online">
-  <span class="screen-watermark">&#127760;</span>
-  <div class="setup-card">
-    <span class="setup-icon">&#127760;</span>
-    <h1>JOIN GAME</h1>
-    <p class="hint-text">Type in the code your friend sent you.</p>
-    <input id="online-join-code-input" class="online-room-code" maxlength="4" autocapitalize="characters" autocomplete="off" placeholder="CODE">
-    <button id="btn-online-join-submit" class="btn-primary">Join</button>
-    <p id="online-join-status" class="hint-text"></p>
-    <button id="btn-online-join-back">Back to Menu</button>
+<div id="online-join-screen" class="screen hidden match-setup-custom custom-setup-screen theme-online">
+  <div class="setup-top-row">
+    <div class="quarter-box online-code-box">
+      <span class="clock-title">Enter Room Code</span>
+      <input id="online-join-code-input" class="online-room-code" maxlength="4" autocapitalize="characters" autocomplete="off" placeholder="CODE">
+      <p class="hint-text">Type in the code your friend sent you.</p>
+    </div>
+  </div>
+  <div class="setup-bottom-row">
+    <button id="btn-online-join-submit" class="quarter-box online-action-box">
+      <span class="kickoff-word">Join</span>
+    </button>
+    <div class="quarter-box online-status-box">
+      <p id="online-join-status" class="hint-text"></p>
+      <button id="btn-online-join-back" class="back-btn-overlap">Back</button>
+    </div>
   </div>
 </div>
 
@@ -470,13 +511,11 @@
 
 <!-- SETTINGS -->
 <div id="settings-screen" class="screen hidden theme-settings">
-  <span class="screen-watermark">&#9881;</span>
   <div class="setup-card">
-    <span class="setup-icon">&#9881;</span>
     <h1>SETTINGS</h1>
 
     <div class="settings-section">
-      <h2>Sound</h2>
+      <h2>Audio</h2>
       <div class="settings-row">
         <label for="settings-volume">Volume</label>
         <input type="range" id="settings-volume" min="0" max="100" value="100">
@@ -487,20 +526,63 @@
       </div>
     </div>
 
+    <!-- Grouped together as "Gameplay" - both affect what you see on the
+         pitch, as distinct from Accessibility (motion/sensory) below. -->
     <div class="settings-section">
-      <h2>Kit Clash Sensitivity</h2>
+      <h2>Gameplay</h2>
+      <div class="settings-subheading">Kit Clash Sensitivity</div>
       <p class="hint-text">High sensitivity swaps the opposition's kit even when the colours are only somewhat similar - useful if two kits are hard to tell apart at a glance.</p>
       <div class="settings-row settings-toggle-group">
         <button id="kit-sensitivity-normal" class="settings-toggle-btn" data-level="normal">Normal</button>
         <button id="kit-sensitivity-high" class="settings-toggle-btn" data-level="high">High</button>
         <button id="kit-sensitivity-colorblind" class="settings-toggle-btn" data-level="colorblind">Colour-blind</button>
       </div>
+      <div class="settings-subheading">Camera Zoom</div>
+      <div class="settings-row">
+        <label for="settings-camera-zoom">Zoom</label>
+        <input type="range" id="settings-camera-zoom" min="120" max="220" value="160">
+      </div>
     </div>
 
     <div class="settings-section">
-      <h2>Controls</h2>
+      <h2>Accessibility</h2>
+      <p class="hint-text">Reduces motion effects (screen shake, confetti, rain animation) for players sensitive to fast movement or on lower-powered devices - rain still affects the ball's physics either way.</p>
+      <div class="settings-row">
+        <label for="settings-reduced-motion">Reduce Motion</label>
+        <input type="checkbox" id="settings-reduced-motion">
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h2>Touch Controls</h2>
+      <p class="hint-text">Swap which side the joystick and action buttons appear on, or drag them into your own layout.</p>
+      <div class="settings-row">
+        <label for="settings-controls-swap">Swap Sides</label>
+        <input type="checkbox" id="settings-controls-swap">
+      </div>
+      <div class="settings-row">
+        <label for="settings-controls-customize">Customize Positions</label>
+        <input type="checkbox" id="settings-controls-customize">
+      </div>
+      <p class="hint-text">While Customize Positions is on, drag the joystick or the button group (in a match) to reposition them.</p>
+      <button id="btn-reset-controls-position" class="btn-primary">Reset Positions</button>
+    </div>
+
+    <div class="settings-section">
+      <h2>Key Bindings</h2>
       <p class="hint-text">Click a key, then press its replacement.</p>
       <div id="keybind-list"></div>
+    </div>
+
+    <div class="settings-section">
+      <h2>Data</h2>
+      <p class="hint-text">Your career saves, stats, and settings only live in this browser - clearing your browser data, switching devices, or reinstalling would lose them. Back up a file you can restore from later.</p>
+      <div class="settings-row settings-toggle-group">
+        <button id="btn-export-save">Export Backup</button>
+        <button id="btn-import-save">Import Backup</button>
+      </div>
+      <input type="file" id="import-save-file-input" accept="application/json,.json" class="hidden">
+      <p id="save-io-status" class="hint-text"></p>
     </div>
 
     <button id="btn-settings-back" class="btn-primary">Back to Menu</button>
@@ -509,9 +591,7 @@
 
 <!-- LIFETIME STATS / TROPHY CABINET -->
 <div id="stats-screen" class="screen hidden theme-stats">
-  <span class="screen-watermark">&#127942;</span>
   <div class="setup-card">
-    <span class="setup-icon">&#127942;</span>
     <h1>CAREER STATS</h1>
     <div id="stats-grid"></div>
     <button id="btn-stats-back" class="btn-primary">Back to Menu</button>
@@ -549,12 +629,12 @@
     </button>
     <div class="quarter-box rank-box">
       <div class="rank-grid">
-        <button class="rank-tile rank-bronze" data-skill="easy"><span class="rank-name">Bronze</span></button>
-        <button class="rank-tile rank-silver" data-skill="medium"><span class="rank-name">Silver</span></button>
-        <button class="rank-tile rank-gold" data-skill="hard"><span class="rank-name">Gold</span></button>
-        <button class="rank-tile rank-diamond" data-skill="expert"><span class="rank-name">Diamond</span></button>
-        <button class="rank-tile rank-platinum" data-skill="legendary"><span class="rank-name">Platinum</span></button>
-        <button class="rank-tile rank-champion" data-skill="champion"><span class="rank-name">Champion</span></button>
+        <button class="rank-tile rank-bronze" data-skill="hard"><span class="rank-name">Bronze</span></button>
+        <button class="rank-tile rank-silver" data-skill="expert"><span class="rank-name">Silver</span></button>
+        <button class="rank-tile rank-gold" data-skill="legendary"><span class="rank-name">Gold</span></button>
+        <button class="rank-tile rank-diamond" data-skill="champion"><span class="rank-name">Diamond</span></button>
+        <button class="rank-tile rank-platinum" data-skill="grandmaster"><span class="rank-name">Platinum</span></button>
+        <button class="rank-tile rank-champion" data-skill="legend"><span class="rank-name">Champion</span></button>
       </div>
     </div>
   </div>
@@ -575,7 +655,7 @@
     <div id="score-center">
       <span id="match-clock">00:00</span>
       <span id="half-label">1st Half</span>
-      <span id="weather-label" class="hidden">&#127783;&#65039; Rain</span>
+      <span id="weather-label" class="hidden">Rain</span>
       <button id="btn-mute" aria-label="Mute">&#128266;</button>
       <button id="btn-pause" aria-label="Pause"><span class="pause-icon"></span></button>
     </div>
@@ -619,6 +699,9 @@
       <div id="joystick-base">
         <div id="joystick-stick"></div>
       </div>
+      <!-- Only shown while "Customize Positions" is on (see Settings) - drag
+           this to move the whole joystick, instead of steering through it. -->
+      <div id="joystick-drag-handle" class="control-drag-handle hidden">Drag</div>
     </div>
     <div id="touch-actions">
       <button id="td-run" class="action-btn run-btn">Run</button>
@@ -626,6 +709,7 @@
       <button id="td-tackle" class="action-btn">Tackle</button>
       <button id="td-pass" class="action-btn">Pass</button>
       <button id="td-shoot" class="action-btn">Shoot</button>
+      <div id="actions-drag-handle" class="control-drag-handle hidden">Drag</div>
     </div>
   </div>
 

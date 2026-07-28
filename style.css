@@ -1,37 +1,70 @@
 
 * { box-sizing: border-box; }
 
+/* ---------- Design tokens ----------
+   Modern flat-UI pass: a real shared palette/spacing/radius/shadow system
+   (there wasn't one before - only a per-theme --accent). Every shared
+   component below is built from these, which is what lets a redesign here
+   propagate across all screens instead of needing per-screen edits. */
+:root {
+  --bg: #0b0f14;
+  --surface: #151b23;
+  --surface-2: #1c2530;
+  --text: #f2f4f7;
+  --text-muted: #9aa5b1;
+  --border: rgba(255,255,255,0.08);
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.28);
+  --shadow-md: 0 10px 28px rgba(0,0,0,0.4);
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
 html, body {
   margin: 0;
   padding: 0;
-  background: #0d1117;
-  color: #e6e6e6;
-  font-family: 'Courier New', Courier, monospace;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
   overflow: hidden;
   height: 100%;
+  /* Smoother text rendering (WebKit/Firefox) - a genuine, well-supported way
+     to make the same system font look crisper rather than needing a custom
+     web font. */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-h1 { letter-spacing: 2px; text-align: center; }
-h2 { text-align: center; }
+h1 { letter-spacing: normal; text-align: center; font-weight: 700; font-size: 30px; }
+h2 { text-align: center; font-weight: 600; font-size: 19px; }
 
 button {
   font-family: inherit;
-  font-size: 16px;
-  padding: 10px 18px;
+  font-size: 17px;
+  padding: 11px 22px;
   margin: 8px;
-  background: #1f6f3a;
-  color: #fff;
-  border: 2px solid #0d3d1c;
-  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text);
+  border: none;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
+  transition: filter 0.15s ease, transform 0.1s ease;
 }
-button:hover { background: #278a49; }
+button:hover { filter: brightness(1.18); }
+button:active { transform: scale(0.97); }
 
 select {
   font-family: inherit;
-  font-size: 15px;
-  padding: 6px;
+  font-size: 16px;
+  padding: 8px 10px;
   margin-left: 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
 }
 
 .screen {
@@ -45,13 +78,18 @@ select {
 
 .hidden { display: none !important; }
 
-/* Main menu - five full-width panels stacked vertically, each ~1/5 of the
-   screen (flex:1 splits the column evenly), themed to hint at what they do,
-   instead of a plain stack of identical buttons. */
+/* Main menu - Play as one full-width "primary action" card up top, the rest
+   in a 2-column grid of rounded icon cards below (previously five full-bleed
+   bars stacked edge-to-edge - this reads more like a mobile app's home
+   screen: distinct tappable cards with real spacing instead of flush bars). */
 #main-menu.menu-screen {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-auto-rows: 1fr;
+  gap: 12px;
   align-items: stretch;
-  justify-content: flex-start;
-  padding: 0;
+  justify-content: stretch;
+  padding: 76px 14px 14px;
   position: relative;
   overflow: hidden;
 }
@@ -67,54 +105,74 @@ select {
   text-shadow: 0 2px 6px rgba(0,0,0,0.85), 0 0 16px rgba(0,0,0,0.6);
 }
 .menu-panel {
-  flex: 1 1 0;
   min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 16px;
   margin: 0;
-  padding: 0;
+  padding: 14px;
   border: none;
-  border-top: 2px solid rgba(255,255,255,0.15);
-  border-radius: 0;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   font-size: 22px;
-  font-weight: bold;
+  font-weight: 600;
   color: #fff;
-  text-shadow: 1px 1px 3px rgba(0,0,0,0.6);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
   cursor: pointer;
-  transition: flex-grow 0.25s ease, filter 0.2s ease;
+  transition: filter 0.2s ease, transform 0.1s ease;
 }
-.menu-panel:first-of-type { border-top: none; }
-.menu-panel:hover { flex-grow: 1.35; filter: brightness(1.15); }
-.menu-panel:active { filter: brightness(0.9); }
-.panel-icon { font-size: 34px; filter: drop-shadow(1px 2px 2px rgba(0,0,0,0.5)); }
+.menu-panel:hover { filter: brightness(1.15); }
+.menu-panel:active { filter: brightness(0.9); transform: scale(0.98); }
+/* Play is the primary action - full width across both columns, up top. */
+#main-menu .panel-play { grid-column: 1 / -1; font-size: 27px; }
+
+/* Continue Career shortcut - same teal identity as the Career panel below,
+   full width, sitting above Play since resuming a save is the single
+   highest-value action for a returning player (see
+   updateMenuContinueCareerCard - hidden entirely when no save exists). */
+.menu-continue-card {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  margin: 0;
+  padding: 10px 14px;
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  background: linear-gradient(160deg, #17a591, #0b3733);
+  color: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  transition: filter 0.2s ease, transform 0.1s ease;
+}
+.menu-continue-card:hover { filter: brightness(1.15); }
+.menu-continue-card:active { filter: brightness(0.9); transform: scale(0.98); }
+.menu-continue-label { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; opacity: 0.85; }
+.menu-continue-club { font-size: 18px; font-weight: bold; }
+.menu-continue-detail { font-size: 12px; opacity: 0.8; }
 
 /* Prefixed with #main-menu so these outrank the generic button/button:hover
-   rules (which would otherwise flatten every panel to plain green on hover). */
-#main-menu .panel-play { background: repeating-linear-gradient(135deg, #2e7d32 0 40px, #256b29 40px 80px); }
-#main-menu .panel-season {
-  background:
-    repeating-linear-gradient(0deg, rgba(255,255,255,0.07) 0 2px, transparent 2px 22px),
-    linear-gradient(135deg, #1d4ed8, #1e3a8a);
-}
-#main-menu .panel-cup { background: linear-gradient(135deg, #eab308, #92400e); }
-/* Wider tiles than the other diagonal patterns (44px vs 40px) so there are
-   fewer repeats to rasterize - a lot of small diagonal tiles is the likely
-   cause of a visible delay before the pattern paints in on first load. No
-   border-top here (unlike every other panel) - a straight divider line
-   cutting across these diagonal stripes read as a broken/misaligned stripe
-   right at the seam, so the colour contrast alone separates it from Cup above. */
-#main-menu .panel-practice { background: repeating-linear-gradient(45deg, #c2410c 0 44px, #9a3412 44px 88px); border-top: none; }
-#main-menu .panel-career { background: linear-gradient(135deg, #0f766e, #134e4a); }
+   rules (which would otherwise flatten every panel to plain green on hover).
+   Flat soft-diagonal gradients (not the old repeating-stripe patterns) - same
+   colour identity per section as before, calmer rendering. Matches the
+   equivalent .theme-* block each panel leads into. */
+#main-menu .panel-play { background: linear-gradient(160deg, #1e8449, #0f3d20); }
+#main-menu .panel-season { background: linear-gradient(160deg, #2f5fdb, #12224f); }
+#main-menu .panel-cup { background: linear-gradient(160deg, #d1a72e, #7a4a0a); }
+#main-menu .panel-practice { background: linear-gradient(160deg, #d2691e, #6b2f0a); }
+#main-menu .panel-career { background: linear-gradient(160deg, #17a591, #0b3733); }
 /* Indigo/violet - distinct from every other panel's colour family (no other
    panel is purple), reads as "network/connect" rather than a pitch/trophy
    theme like the rest of the menu. */
-#main-menu .panel-online { background: linear-gradient(135deg, #4c1d95, #1e1b4b); }
-#main-menu .panel-exit { background: linear-gradient(135deg, #7f1d1d, #1f2937); }
+#main-menu .panel-online { background: linear-gradient(160deg, #6633b3, #1c1440); }
+#main-menu .panel-exit { background: linear-gradient(160deg, #9b3a3a, #241a1f); }
 
-/* Settings/stats - deliberately NOT a 6th full panel (that would break the
-   five-equal-fifths layout above) - just two small corner buttons instead. */
+/* Settings/stats - deliberately NOT part of the card grid above (that would
+   break the clean 1-primary + 2-column-of-6 layout) - just corner buttons. */
 #menu-corner-buttons {
   position: absolute;
   top: 10px;
@@ -138,13 +196,19 @@ select {
 }
 .menu-corner-btn:hover { background: rgba(13,17,23,0.85); }
 
+/* Fixed (not tied to any one screen's own layout) so it floats consistently
+   in the same corner everywhere it's shown - see showScreen for when. */
+.home-corner-btn {
+  position: fixed;
+  top: 10px;
+  left: 12px;
+  z-index: 20;
+}
+
 @media (max-height: 500px), (max-width: 380px) {
   .menu-title { font-size: 20px; top: 6px; }
   .menu-panel { font-size: 16px; gap: 10px; }
-  .panel-icon { font-size: 22px; }
   .setup-card { padding: 16px 20px; }
-  .setup-icon { font-size: 30px; }
-  .screen-watermark { font-size: 140px; }
 }
 
 /* Deeper setup/progress screens (Play/Season/Cup/Practice) - same themed
@@ -156,41 +220,25 @@ select {
   position: relative;
   overflow: hidden;
 }
-.theme-play { background: repeating-linear-gradient(135deg, #2e7d32 0 40px, #256b29 40px 80px); --accent: #2e7d32; }
-.theme-season {
-  background:
-    repeating-linear-gradient(0deg, rgba(255,255,255,0.07) 0 2px, transparent 2px 22px),
-    linear-gradient(135deg, #1d4ed8, #1e3a8a);
-  --accent: #1d4ed8;
-}
-.theme-cup { background: linear-gradient(135deg, #eab308, #92400e); --accent: #eab308; }
-.theme-practice { background: repeating-linear-gradient(45deg, #c2410c 0 44px, #9a3412 44px 88px); --accent: #ea580c; }
-.theme-settings { background: linear-gradient(135deg, #475569, #1e293b); --accent: #64748b; }
-.theme-stats { background: linear-gradient(135deg, #7c3aed, #4c1d95); --accent: #eab308; }
+.theme-play { background: linear-gradient(160deg, #1e8449, #0f3d20); --accent: #22c55e; }
+.theme-season { background: linear-gradient(160deg, #2f5fdb, #12224f); --accent: #3b82f6; }
+.theme-cup { background: linear-gradient(160deg, #d1a72e, #7a4a0a); --accent: #eab308; }
+.theme-practice { background: linear-gradient(160deg, #d2691e, #6b2f0a); --accent: #f97316; }
+.theme-settings { background: linear-gradient(160deg, #55677d, #202b3a); --accent: #64748b; }
+.theme-stats { background: linear-gradient(160deg, #8657e0, #33195e); --accent: #eab308; }
 /* Same indigo family as the main-menu Online panel, light violet accent
    (rather than stats' gold) so it doesn't read as the same screen. */
-.theme-online { background: linear-gradient(135deg, #4c1d95, #1e1b4b); --accent: #818cf8; }
-.theme-career { background: linear-gradient(135deg, #0f766e, #134e4a); --accent: #2dd4bf; }
-
-.screen-watermark {
-  position: absolute;
-  right: 3%;
-  bottom: 0;
-  font-size: 240px;
-  line-height: 1;
-  opacity: 0.1;
-  pointer-events: none;
-  z-index: 0;
-}
+.theme-online { background: linear-gradient(160deg, #6633b3, #1c1440); --accent: #a78bfa; }
+.theme-career { background: linear-gradient(160deg, #17a591, #0b3733); --accent: #2dd4bf; }
 
 .setup-card {
   position: relative;
   z-index: 1;
-  background: rgba(13, 17, 23, 0.88);
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  border-radius: 14px;
-  padding: 26px 34px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  background: rgba(21, 27, 35, 0.92);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px 36px;
+  box-shadow: var(--shadow-md);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -198,25 +246,20 @@ select {
   max-height: 92vh;
   overflow-y: auto;
 }
-.setup-icon {
-  font-size: 42px;
-  margin-bottom: 2px;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
-}
-.setup-card h1 { margin: 0 0 12px; font-size: 26px; }
+.setup-card h1 { margin: 0 0 12px; font-size: 28px; }
 
 .setup-card select {
-  background: #161b22;
-  color: #fff;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 6px;
-  padding: 6px 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
 }
-.setup-card select:focus { outline: 2px solid var(--accent, #278a49); }
+.setup-card select:focus { outline: 2px solid var(--accent, #3b82f6); }
 
 .setup-card .btn-primary {
   background: var(--accent, #1f6f3a);
-  border-color: rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-sm);
 }
 .setup-card .btn-primary:hover { filter: brightness(1.15); }
 
@@ -241,19 +284,63 @@ select {
 .online-room-code {
   width: 220px;
   max-width: 90%;
+  /* Deliberately still monospace even though the rest of the UI moved off it -
+     a room code is read character-by-character between two people, so fixed-
+     width digits/letters genuinely help here rather than being a leftover. */
   font-family: 'Courier New', Courier, monospace;
   font-size: 42px;
   font-weight: bold;
   letter-spacing: 10px;
   text-align: center;
-  background: #161b22;
+  background: var(--surface-2);
   color: #9fe6a0;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
   padding: 10px 4px;
   margin: 4px 0 10px;
 }
 .online-room-code::placeholder { color: rgba(159, 230, 160, 0.35); letter-spacing: 10px; }
+
+/* Online screens' box-design boxes (mode picker / host / join) - same
+   quarter-box grid every other setup screen uses, rather than a single
+   centered card. Two shades of the online purple family distinguish Host
+   from Join at a glance, matching the main menu's Online panel identity. */
+.custom-setup-screen .online-host-box {
+  cursor: pointer;
+  color: #fff;
+  font-family: inherit;
+  background: linear-gradient(160deg, #6633b3, #3d1f80);
+}
+.custom-setup-screen .online-host-box:hover { filter: brightness(1.12); }
+.custom-setup-screen .online-join-box {
+  cursor: pointer;
+  color: #fff;
+  font-family: inherit;
+  background: linear-gradient(160deg, #4527a0, #1c1440);
+}
+.custom-setup-screen .online-join-box:hover { filter: brightness(1.12); }
+/* Purely informational - not clickable, so no hover/cursor treatment. */
+.online-hint-box { cursor: default; padding: 10px 16px; }
+.online-hint-box .hint-text { margin: 0; }
+
+/* Host/Join's room-code display - title + code + hint stacked vertically,
+   same idea as .clock-box's layout but a neutral surface rather than a
+   themed colour, since this is a display/input, not an action. */
+.online-code-box { flex-direction: column; gap: 8px; cursor: default; padding: 14px; }
+.online-code-box .hint-text { margin: 4px 0 0; max-width: 280px; }
+
+/* The screen's one clear primary action (Copy Code / Join). */
+.custom-setup-screen .online-action-box {
+  cursor: pointer;
+  color: #fff;
+  font-family: inherit;
+  background: linear-gradient(160deg, #7c3aed, #4c1d95);
+}
+.custom-setup-screen .online-action-box:hover { filter: brightness(1.15); }
+
+.online-status-box { cursor: default; padding: 10px 16px; }
+.online-status-box .hint-text { margin: 0; max-width: 220px; }
 
 /* Settings screen */
 .settings-section {
@@ -265,6 +352,19 @@ select {
 }
 .settings-section:last-of-type { border-bottom: none; }
 .settings-section h2 { font-size: 15px; margin: 0 0 8px; text-align: left; opacity: 0.85; }
+/* A lighter-weight sub-heading for grouping two related controls under one
+   .settings-section (e.g. Kit Clash Sensitivity + Camera Zoom under
+   "Gameplay") without it competing with the section's own h2. */
+.settings-subheading {
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.6;
+  text-align: left;
+  margin: 10px 0 2px;
+}
+.settings-subheading:first-of-type { margin-top: 0; }
 .settings-row {
   display: flex;
   align-items: center;
@@ -274,17 +374,17 @@ select {
 }
 .settings-row label { font-size: 14px; }
 .settings-row input[type="range"] { width: 160px; accent-color: var(--accent, #64748b); }
-.hint-text { font-size: 12px; opacity: 0.7; margin: 4px 0 8px; text-align: left; }
+.hint-text { font-size: 14px; opacity: 0.75; margin: 4px 0 8px; text-align: left; }
 .settings-toggle-group { justify-content: flex-start; gap: 8px; flex-wrap: wrap; }
 .settings-toggle-btn {
-  background: #161b22;
-  border: 2px solid rgba(255,255,255,0.3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
   padding: 8px 14px;
   opacity: 0.7;
 }
 .settings-toggle-btn.active {
   background: var(--accent, #64748b);
-  border-color: rgba(255,255,255,0.6);
+  border-color: rgba(255,255,255,0.5);
   opacity: 1;
 }
 .keybind-row {
@@ -300,8 +400,8 @@ select {
   padding: 6px 10px;
   margin: 0;
   font-weight: bold;
-  background: #161b22;
-  border: 2px solid rgba(255,255,255,0.3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
 }
 .keybind-btn.listening { background: var(--accent, #64748b); border-color: #fff; }
 
@@ -328,7 +428,10 @@ select {
    team-colour boxes on top (half the screen each), three smaller boxes on
    the bottom (a third each) for half length/kickoff/difficulty. */
 .match-setup-custom {
-  padding: 0;
+  /* Card grid: real gaps + padding instead of the old flush edge-to-edge
+     boxes - each box below now reads as a distinct rounded card. */
+  padding: 10px;
+  gap: 10px;
   align-items: stretch;
   justify-content: flex-start;
   flex-direction: column;
@@ -337,6 +440,7 @@ select {
   flex: 1 1 0;
   min-height: 0;
   display: flex;
+  gap: 10px;
 }
 .team-box, .quarter-box {
   flex: 1 1 0;
@@ -345,12 +449,11 @@ select {
   align-items: center;
   justify-content: center;
   position: relative;
-  /* -1px right margin so adjacent boxes overlap by a hair - flex:1 items can
-     leave a sub-pixel rounding gap between them that shows the page's own
-     near-black background through as a thin line either side of a box. */
-  margin: 0 -1px 0 0;
+  margin: 0;
   padding: 0;
-  border-radius: 0;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
 }
 
 /* Team boxes - background/text colour set inline via --team-color/--team-text
@@ -359,9 +462,7 @@ select {
   background: var(--team-color, #333);
   color: var(--team-text, #fff);
   gap: 14px;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.15);
 }
-.team-box:first-child { border-right: 2px solid rgba(255, 255, 255, 0.15); }
 .team-box-name {
   display: inline-block;
   font-size: 26px;
@@ -404,7 +505,7 @@ select {
 }
 .custom-setup-screen .team-arrow:hover { background: rgba(0, 0, 0, 0.5); }
 
-.custom-setup-screen .quarter-box { background: #161b22; border-top: 2px solid rgba(255, 255, 255, 0.1); }
+.custom-setup-screen .quarter-box { background: var(--surface-2); }
 
 /* Clock box - a deep slate-blue panel (distinct from the shared dark quarter-
    box background, but still a neutral "utility control" colour that doesn't
@@ -439,7 +540,7 @@ select {
   cursor: pointer;
   color: #fff;
   font-family: inherit;
-  background: repeating-linear-gradient(135deg, #2e7d32 0 40px, #256b29 40px 80px);
+  background: linear-gradient(160deg, #1e8449, #0f3d20);
 }
 .custom-setup-screen .kickoff-box:hover { filter: brightness(1.12); }
 .kickoff-word {
@@ -458,9 +559,7 @@ select {
   font-family: inherit;
   flex-direction: column;
   gap: 10px;
-  background:
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.07) 0 2px, transparent 2px 22px),
-    linear-gradient(135deg, #1d4ed8, #1e3a8a);
+  background: linear-gradient(160deg, #2f5fdb, #12224f);
 }
 .custom-setup-screen .season-start-box:hover { filter: brightness(1.15); }
 .season-start-graphic { display: flex; align-items: flex-end; gap: 5px; height: 44px; }
@@ -478,7 +577,7 @@ select {
   font-family: inherit;
   flex-direction: column;
   gap: 10px;
-  background: linear-gradient(135deg, #eab308, #92400e);
+  background: linear-gradient(160deg, #d1a72e, #7a4a0a);
 }
 .custom-setup-screen .cup-start-box:hover { filter: brightness(1.12); }
 .cup-start-graphic {
@@ -498,7 +597,7 @@ select {
   font-family: inherit;
   flex-direction: column;
   gap: 10px;
-  background: repeating-linear-gradient(45deg, #c2410c 0 44px, #9a3412 44px 88px);
+  background: linear-gradient(160deg, #d2691e, #6b2f0a);
 }
 .custom-setup-screen .practice-start-box:hover { filter: brightness(1.1); }
 .practice-start-graphic {
@@ -540,16 +639,19 @@ select {
   overflow: hidden;
 }
 .rank-name { font-size: 11px; font-weight: bold; }
-/* Selected state: a stronger white wash than before, plus a diagonal-stripe
-   overlay at an even higher opacity on top - the stripes make the selection
-   obvious even on the lighter tiles (Silver, Diamond, Platinum) where a
-   plain wash alone barely shows up against an already-light background. */
-.rank-tile.selected { box-shadow: inset 0 0 0 999px rgba(255, 255, 255, 0.4); }
+/* Selected state: a solid ring + checkmark rather than a stripe overlay -
+   reads clearly against any tile colour (light or dark) without the busier
+   diagonal-stripe texture the rest of the redesign moved away from. */
+.rank-tile.selected { box-shadow: inset 0 0 0 3px #ffffff, inset 0 0 0 999px rgba(255, 255, 255, 0.18); }
 .rank-tile.selected::after {
-  content: '';
+  content: '\2713';
   position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.55) 0 6px, transparent 6px 14px);
+  top: 4px;
+  right: 7px;
+  font-size: 13px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
   pointer-events: none;
 }
 
@@ -602,8 +704,8 @@ select {
   display: flex;
   align-items: stretch;
   font-size: 20px;
-  background: #111;
-  border-bottom: 2px solid #333;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
 }
 
 /* Each half of the bar is tinted with that team's own colour (set inline via
@@ -647,7 +749,7 @@ select {
   align-items: center;
   gap: 10px;
   padding: 0 14px;
-  background: #111;
+  background: var(--surface);
 }
 #half-label { font-size: 14px; opacity: 0.75; }
 #weather-label { font-size: 13px; opacity: 0.8; }
@@ -788,8 +890,13 @@ select {
 #controls-toggle:hover { background: #eeeeee; }
 
 #touch-controls {
+  /* top:0 (not just left/right/bottom) so this spans the full viewport height -
+     it's invisible either way, but a repositioned joystick/actions group (see
+     .control-drag-handle) needs a full-height containing block for its
+     percentage-based left/top to resolve against the same coordinate space
+     the drag math itself uses (window.innerWidth/innerHeight). */
   position: absolute;
-  left: 0; right: 0; bottom: 0;
+  top: 0; left: 0; right: 0; bottom: 0;
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
@@ -800,6 +907,9 @@ select {
   padding-right: calc(26px + env(safe-area-inset-right));
   pointer-events: none;
 }
+/* Settings > Touch Controls > "Swap Sides" - mirrors which side the joystick
+   vs the action buttons land on without touching their DOM order. */
+#touch-controls.controls-swapped { flex-direction: row-reverse; }
 
 /* Tablets (and anything else with a coarse pointer and more screen to spare):
    pull the controls in further from the edges rather than leaving them
@@ -814,8 +924,33 @@ select {
 }
 
 #touch-joystick, #touch-actions {
+  position: relative;
   pointer-events: auto;
 }
+
+/* Shown only while Settings > Touch Controls > "Customize Positions" is on -
+   covers the whole joystick/action-button group and captures the drag instead
+   of the controls underneath, so dragging to reposition can't be confused
+   with an actual steer/tackle/pass input. */
+.control-drag-handle {
+  position: absolute;
+  inset: -10px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: bold;
+  color: #fff;
+  background: rgba(59,130,246,0.35);
+  border: 2px dashed rgba(255,255,255,0.85);
+  border-radius: 16px;
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.control-drag-handle.hidden { display: none; }
 
 #joystick-base {
   position: relative;
@@ -892,17 +1027,19 @@ select {
 .overlay {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.7);
+  background: rgba(6,9,13,0.72);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .overlay-box {
-  background: #161b22;
-  border: 2px solid #444;
-  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   padding: 30px 40px;
+  box-shadow: var(--shadow-md);
   text-align: center;
   max-height: 90vh;
   overflow-y: auto;
@@ -916,7 +1053,8 @@ select {
 /* Themed around the scoring team's own kit colour, white as the accent. */
 .goal-box {
   background: var(--team-color, #161b22);
-  border: 4px solid #ffffff;
+  border: 1px solid rgba(255,255,255,0.5);
+  box-shadow: var(--shadow-md), 0 0 40px rgba(255,255,255,0.15);
 }
 .goal-box h2 {
   font-size: 48px;
@@ -986,10 +1124,10 @@ select {
   z-index: 45;
   background: var(--toast-color, #444);
   color: #111;
-  font-weight: bold;
+  font-weight: 600;
   padding: 10px 22px;
-  border-radius: 6px;
-  border: 2px solid rgba(0,0,0,0.4);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s ease, transform 0.25s ease;
@@ -1013,10 +1151,11 @@ select {
   max-width: 260px;
 }
 .ticker-row {
-  background: rgba(13,17,23,0.72);
-  color: #e6e6e6;
-  border: 1px solid rgba(255,255,255,0.18);
-  border-radius: 6px;
+  background: rgba(21,27,35,0.85);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
   padding: 5px 10px;
   font-size: 12px;
   white-space: nowrap;
@@ -1068,7 +1207,7 @@ select {
 #pitch-wrap.screen-shake { animation: screenShake 0.3s ease-out; }
 
 /* Season setup / table screens */
-.hint-text { max-width: 340px; text-align: center; font-size: 13px; opacity: 0.75; margin: 10px 0; }
+.hint-text { max-width: 340px; text-align: center; font-size: 14px; opacity: 0.75; margin: 10px 0; }
 
 #season-record { margin: 10px 0; }
 .season-stat-row {
@@ -1333,6 +1472,31 @@ select {
    corner from Back/Save & Exit so it doesn't read as a "leave" action. */
 #career-fixture-box .table-btn-overlap { position: absolute; right: 8px; top: 8px; z-index: 5; margin: 0; font-size: 12px; padding: 5px 10px; }
 
+/* Persistent "season just ended" indicator - a real button (not a passive
+   badge) since the whole point is it needs to be noticed and clicked,
+   regardless of which path (live play, Sim, or reopening the save) ended
+   the season. Sits at the bottom of the fixture box, gold/celebratory rather
+   than the fixture box's usual team-colour tint so it stands out from it. */
+.career-season-summary-badge {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 5;
+  margin: 0;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 7px 10px;
+  background: linear-gradient(135deg, #eab308, #92400e);
+  border: 1px solid rgba(255,255,255,0.5);
+  box-shadow: var(--shadow-sm);
+  animation: seasonBadgePulse 1.4s ease-in-out infinite;
+}
+@keyframes seasonBadgePulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.25); }
+}
+
 /* Online team-pick screen's Squad box - same purple identity as Career's
    own squad box, sitting alongside the Ready button rather than as a small
    overlap button, since there's room for it now the difficulty box is gone. */
@@ -1372,6 +1536,21 @@ select {
   align-items: stretch;
   justify-content: flex-start;
   padding-top: 60px;
+}
+/* Bug fix: this panel wasn't a flex container itself, so its child
+   .career-market-columns (and in turn .career-market-col-list, already
+   correctly set up as flex:1 1 auto; overflow-y:auto) never actually got
+   height-constrained - it just grew to full content height and got clipped
+   by the page's overflow:hidden, with nothing left to scroll. flex:1 1 auto
+   here makes this panel itself size correctly as a flex item of the screen
+   column above it; display:flex + min-height:0 lets its own children size
+   correctly in turn. */
+#career-market-buy-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 .career-market-banner {
   position: static;
@@ -1542,14 +1721,69 @@ select {
   margin: 0;
 }
 
+/* Two columns side by side - Match Log (every game) on the left, Season
+   History (one row per completed season) on the right. */
+.career-history-body {
+  display: flex;
+  gap: 16px;
+  width: 900px;
+  max-width: 96vw;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0 auto;
+}
+.career-history-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.career-history-col h3 { font-size: 14px; margin: 0 0 8px; text-align: center; opacity: 0.85; }
+
+/* Every game played - opponent/score/competition/result, newest first. */
+.career-matchlog-list {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.career-matchlog-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(17, 24, 39, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+.career-matchlog-result {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: bold;
+  color: #111;
+  background: var(--result-color, #9ca3af);
+}
+.career-matchlog-opp { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: bold; }
+.career-matchlog-score { flex-shrink: 0; font-weight: bold; }
+.career-matchlog-comp { flex-shrink: 0; opacity: 0.7; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* Season History - one collapsed row per completed season, expands in place
    when clicked rather than navigating anywhere (see renderCareerHistoryScreen). */
 .career-history-list {
-  width: 640px;
-  max-width: 94vw;
-  max-height: 74vh;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
-  margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1624,7 +1858,6 @@ select {
   background: linear-gradient(135deg, #ca8a04, #713f12);
 }
 .custom-setup-screen .career-transfer-box:hover { filter: brightness(1.12); }
-.career-transfer-graphic { font-size: 30px; filter: drop-shadow(1px 2px 2px rgba(0,0,0,0.5)); }
 
 /* Play/Sim split box - one quarter-box cell divided into two stacked
    halves instead of two separate boxes, so Transfers can take the third

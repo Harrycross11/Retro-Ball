@@ -912,6 +912,12 @@ const FORMATION = [
 // decisions (lower reassess time), more committed tackling, longer shooting
 // range, and (see DIFFICULTY_OPPONENT_BOOST below) tougher attributes, which
 // aren't speed-capped and are what actually makes them bite.
+// easy/medium are kept (existing saves may still reference them) but are no
+// longer reachable from the rank tiles - Bronze through Champion were shifted
+// two tiers harder (Bronze now plays at the old Gold/"hard" difficulty), and
+// grandmaster/legend are two brand new tiers added above the old ceiling
+// (champion) so there are still 6 selectable ranks - see the rank-tile
+// data-skill attributes in index.html.
 const SKILLS = {
   easy:      { speed: 4.4, pressBoost: 1.08, tackleChance: 0.40, noise: 3.0,  reassessMin: 0.70, reassessMax: 1.40, shootRange: 16 },
   medium:    { speed: 5.0, pressBoost: 1.10, tackleChance: 0.52, noise: 1.6,  reassessMin: 0.50, reassessMax: 1.00, shootRange: 20 },
@@ -919,6 +925,8 @@ const SKILLS = {
   expert:    { speed: 6.0, pressBoost: 1.12, tackleChance: 0.70, noise: 0.3,  reassessMin: 0.22, reassessMax: 0.50, shootRange: 30 },
   legendary: { speed: 6.4, pressBoost: 1.15, tackleChance: 0.76, noise: 0.15, reassessMin: 0.16, reassessMax: 0.35, shootRange: 34 },
   champion:  { speed: 6.6, pressBoost: 1.18, tackleChance: 0.80, noise: 0.08, reassessMin: 0.12, reassessMax: 0.28, shootRange: 36 },
+  grandmaster: { speed: 6.8, pressBoost: 1.20, tackleChance: 0.84, noise: 0.05, reassessMin: 0.09, reassessMax: 0.22, shootRange: 38 },
+  legend:      { speed: 7.0, pressBoost: 1.22, tackleChance: 0.87, noise: 0.03, reassessMin: 0.07, reassessMax: 0.18, shootRange: 40 },
 };
 const HUMAN_SPEED = 6.2;
 // How fast a player's actual velocity can change (m/s^2) - both speeding up
@@ -1094,7 +1102,7 @@ function rollWeather(forced) {
   if (label) label.classList.toggle('hidden', G.weather !== 'rain');
 }
 function updateRain(dt) {
-  if (G.weather !== 'rain') return;
+  if (G.weather !== 'rain' || G.reducedMotion) return;
   for (const d of G.rainDrops) {
     d.y += d.speed * dt;
     if (d.y > CANVAS_H) { d.y = -d.len; d.x = rand(0, CANVAS_W); }
@@ -1104,7 +1112,7 @@ function updateRain(dt) {
 // camera/world space, so the rain reads as falling evenly across the whole
 // view regardless of the camera's current pan/zoom.
 function drawRain(ctx) {
-  if (G.weather !== 'rain') return;
+  if (G.weather !== 'rain' || G.reducedMotion) return;
   ctx.setTransform(canvasDPR, 0, 0, canvasDPR, 0, 0);
   ctx.strokeStyle = 'rgba(210,225,255,0.35)';
   ctx.lineWidth = 1.4;
@@ -1375,6 +1383,7 @@ function logMatchEvent(text) {
 
 // A hard shot or a successful tackle gives the pitch a quick jolt.
 function shakeScreen() {
+  if (G.reducedMotion) return;
   const el = document.getElementById('pitch-wrap');
   el.classList.remove('screen-shake');
   void el.offsetWidth; // force reflow so the animation restarts if already running
@@ -1414,6 +1423,8 @@ const G = {
   isNightMatch: false, // rolled once per match/practice session - see NIGHT_MATCH_CHANCE
   weather: 'clear', // 'clear' or 'rain' - rolled once per match/practice session, see rollWeather()
   rainDrops: [], // falling rain streaks while G.weather === 'rain' - see rollWeather/updateRain/drawRain
+  reducedMotion: false, // Settings > Accessibility > Reduce Motion - only gates visual flourish (shake/confetti/rain streaks), never gameplay (rain still slows the ball)
+  customizeControls: false, // Settings > Touch Controls > Customize Positions - see setupControlsCustomization
   online: null, // null offline; else {role:'host'|'guest', pc, dc, signalWs, connState, matchStarted, ...} - see startOnlineHost/joinOnlineWithCode
   pendingScorer: null, // player object captured at the moment of a goal - see triggerGoalSlowMo/scoreGoal
   allMatchPlayers: [], // every player who's appeared this match (starters + subs brought on) - for Man of the Match at full-time
@@ -1452,7 +1463,7 @@ function isAimableShotSituation(forPlayer) {
 // The opponent (team index 1) gets an extra attribute boost on top of their
 // real team strength as difficulty rises - your own team (index 0) always
 // just plays at its real strength, whichever club you picked.
-const DIFFICULTY_OPPONENT_BOOST = { easy: 1.0, medium: 1.08, hard: 1.18, expert: 1.30, legendary: 1.45, champion: 1.55 };
+const DIFFICULTY_OPPONENT_BOOST = { easy: 1.0, medium: 1.08, hard: 1.18, expert: 1.30, legendary: 1.45, champion: 1.55, grandmaster: 1.65, legend: 1.75 };
 
 // Shared by both the 11 starters (which have a real formation slot/home
 // position) and the bench (which don't have either until they're subbed on).
@@ -1745,7 +1756,7 @@ function maybeInjurePlayer(p) {
   p.tackling *= 0.85;
   G.stoppageEvents++;
   const teamName = document.getElementById(p.__team === 0 ? 'score-home-name' : 'score-away-name').textContent;
-  showToast(`${teamName} player picked up a knock`, '#f97316');
+  showToast(`🤕 ${teamName} player picked up a knock`, '#f97316');
   logMatchEvent(`🤕 ${teamName} - ${playerLabel(p)} picked up a knock`);
 }
 
@@ -1764,14 +1775,14 @@ function maybeCallFoul(defender, spot) {
   SFX.whistle();
   const foulTeamName = document.getElementById(defender.__team === 0 ? 'score-home-name' : 'score-away-name').textContent;
   if (inOwnBox) {
-    showToast('PENALTY!', '#e63946');
+    showToast('🎯 PENALTY!', '#e63946');
     logMatchEvent(`🎯 Penalty - ${foulTeamName} - ${playerLabel(defender)}`);
     const attackTeam = G.teams[attackTeamIdx];
     const penX = attackTeam.attackDir === 1 ? PITCH_LEN - PEN_SPOT_DIST : PEN_SPOT_DIST;
     const taker = outfield(attackTeam).slice().sort((a, b) => b.finishing - a.finishing)[0];
     beginRestart(taker, { x: penX, y: PITCH_WID / 2 }, BOX_DEPTH, 'penalty');
   } else {
-    showToast(pick(['FOUL - Free Kick', 'Free Kick Given', 'Whistle - Free Kick']), '#eab308');
+    showToast(pick(['🚩 FOUL - Free Kick', '🚩 Free Kick Given', '🚩 Whistle - Free Kick']), '#eab308');
     logMatchEvent(`🚩 Foul - ${foulTeamName} - ${playerLabel(defender)}`);
     const clampedSpot = { x: clamp(spot.x, 3, PITCH_LEN - 3), y: clamp(spot.y, 2, PITCH_WID - 2) };
     startTeamRestart(attackTeamIdx, clampedSpot, CORNER_EXCLUSION, 'freekick');
@@ -1785,11 +1796,11 @@ function cardCheck(defender) {
   defender.cardLevel++;
   const teamName = document.getElementById(defender.__team === 0 ? 'score-home-name' : 'score-away-name').textContent;
   if (defender.cardLevel === 1) {
-    showToast(pick(['YELLOW CARD', "Booking - It's a Yellow", 'Cautioned']), '#ffd54f');
+    showToast(pick(['🟨 YELLOW CARD', "🟨 Booking - It's a Yellow", '🟨 Cautioned']), '#ffd54f');
     logMatchEvent(`🟨 ${teamName} - ${playerLabel(defender)}`);
   } else {
     defender.sentOff = true;
-    showToast('RED CARD - down to 10 men!', '#e63946');
+    showToast('🟥 RED CARD - down to 10 men!', '#e63946');
     logMatchEvent(`🟥 ${teamName} - ${playerLabel(defender)}`);
   }
   updateCardIndicators();
@@ -2461,7 +2472,31 @@ function loadCareerSlot(n) {
 }
 function saveCareerSlot(n, data) {
   try { localStorage.setItem(careerSlotKey(n), JSON.stringify(data)); } catch (e) { /* localStorage unavailable - career progress just won't persist */ }
+  // Every save is "this is the career I'm actively playing right now" - see
+  // updateMenuContinueCareerCard, which reads this back to decide what the
+  // main menu's Continue Career card points at.
+  saveSettings({ lastCareerSlot: n });
 }
+// Main menu's "Continue Career" shortcut - skips Main Menu -> Career ->
+// pick slot -> dashboard down to a single tap, for whichever save was most
+// recently loaded/saved (see saveCareerSlot/the slots screen's Continue
+// button, both of which keep settings.lastCareerSlot up to date).
+function updateMenuContinueCareerCard() {
+  const card = document.getElementById('btn-menu-continue-career');
+  const slot = loadSettings().lastCareerSlot;
+  const data = slot ? loadCareerSlot(slot) : null;
+  if (!data) { card.classList.add('hidden'); return; }
+  const def = ALL_CLUBS[data.clubIdx];
+  document.getElementById('menu-continue-club').textContent = def ? def.name : '?';
+  document.getElementById('menu-continue-detail').textContent = `Season ${data.seasonNumber} — £${data.budget}m`;
+  card.classList.remove('hidden');
+  card.onclick = () => {
+    CAREER = data;
+    restoreCareerNextPlayerId(data);
+    showCareerDashboard();
+  };
+}
+
 // careerNextPlayerId is a plain module-level counter, not itself saved as
 // part of CAREER - after a page reload it resets to 1, so the next freshly
 // generated player (a transfer-market listing, a regen) could get an id
@@ -2565,7 +2600,11 @@ const DOMESTIC_CUP_NAME = {
 // alone can't express a name that depends on which league the cup fixture
 // was actually built under.
 function fixtureCompetitionLabel(fixture) {
-  return (fixture && fixture.label) || COMPETITION_LABEL[fixture.type];
+  const label = (fixture && fixture.label) || COMPETITION_LABEL[fixture.type];
+  // Two-legged European knockout ties (see resolveEuropeGroup) - distinguish
+  // which leg this fixture is without needing a separate display field.
+  if (fixture && fixture.leg) return `${label} (Leg ${fixture.leg})`;
+  return label;
 }
 
 // European qualification (Champions League/Europa League) - the "big 5"
@@ -2708,6 +2747,8 @@ function newCareer(slot, clubIdx, halfLenMin, skillKey) {
     nextGenerationSeason: 1 + Math.floor(rand(3, 5)),
     leagueTitlesWon: 0, faCupsWon: 0, leagueCupsWon: 0, uclTitlesWon: 0, uelTitlesWon: 0,
     europeCompetition: null, europeGroup: null,
+    pendingKnockoutLeg1: null, // { gf, ga } from leg 1 of the current two-legged tie - see applyCareerFixtureResult
+    matchLog: [], // every fixture actually played, newest last - see pushCareerMatchLog/renderCareerMatchLog
     worldState: {},
     customLineup: {},
     incomingOffers: [],
@@ -2728,6 +2769,11 @@ function newCareer(slot, clubIdx, halfLenMin, skillKey) {
 }
 
 function startCareerMatch() {
+  // Diagnostic only (reported laggy on some devices, no cause found in this
+  // function or anything it calls after checking - left in so real numbers
+  // show up in the console next time, instead of guessing blind again) -
+  // safe to remove once the cause is actually found.
+  console.time('careerMatchStart');
   const fixture = CAREER.fixtures[CAREER.fixtureIdx];
   // effectiveClub, not a raw ALL_CLUBS lookup, so a club that's drifted
   // stronger/weaker over past seasons actually plays at that strength live,
@@ -2735,6 +2781,7 @@ function startCareerMatch() {
   initMatchWithClubs(effectiveClub(CAREER.clubIdx), effectiveClub(fixture.oppIdx), CAREER.halfLenMin, CAREER.skillKey);
   applyCareerSquad(G.teams[0]);
   showScreen('match-screen');
+  console.timeEnd('careerMatchStart');
 }
 
 // Overlays the human's persistent career squad onto the disposable per-match
@@ -2794,10 +2841,39 @@ function applyCareerSquad(team, ctx) {
   }
 }
 
+// Real penalty shootouts are famously close to a coin-flip regardless of
+// overall team quality - a small nudge from relative strength, not a big
+// swing either way. Used wherever a cup tie is level and needs a genuine
+// winner instead of just eliminating the better (or unluckier) team.
+function simCupPensDecider(myStrength, oppStrength) {
+  const total = myStrength + oppStrength || 1;
+  const winChance = clamp(0.5 + (myStrength - oppStrength) / total * 0.3, 0.35, 0.65);
+  return Math.random() < winChance;
+}
+
+// Every fixture actually played (league, cup, European group leg, European
+// knockout leg) gets one row here - the Career History screen's Match Log
+// reads straight from this. resultOverride lets facup/leaguecup force a W/L
+// (never D) once a level scoreline has already been through
+// simCupPensDecider - the raw gf/ga stays the true scoreline either way.
+function pushCareerMatchLog(fixture, gf, ga, resultOverride) {
+  CAREER.matchLog = CAREER.matchLog || [];
+  CAREER.matchLog.push({
+    season: CAREER.seasonNumber,
+    oppIdx: fixture.oppIdx,
+    gf, ga,
+    competition: fixtureCompetitionLabel(fixture) || 'League',
+    result: resultOverride || (gf > ga ? 'W' : gf === ga ? 'D' : 'L'),
+  });
+}
+
 // Shared by both the live-match and sim paths. League fixtures update the
 // table as normal; cup fixtures instead advance-or-eliminate that
-// competition (no replays/shootouts - a draw counts as a loss, kept simple)
-// and pay out CUP_PRIZE the moment there are no rounds of that type left.
+// competition, paying out CUP_PRIZE the moment there are no rounds of that
+// type left. A level scoreline in a cup tie (domestic or the aggregate of a
+// European two-legged tie) goes to a simmed penalty shootout rather than
+// just eliminating on a draw - a cup tie always ends in a genuine win or
+// loss, same as it would in reality.
 function applyCareerFixtureResult(fixture, gf, ga) {
   CAREER.seasonTrophies = CAREER.seasonTrophies || { facup: false, leaguecup: false, ucl: false, uel: false };
   if (fixture.type === 'league') {
@@ -2807,43 +2883,83 @@ function applyCareerFixtureResult(fixture, gf, ga) {
     else if (gf === ga) { r.drawn++; r.points += 1; }
     else { r.lost++; }
     CAREER.results.push({ oppIdx: fixture.oppIdx, gf, ga });
+    pushCareerMatchLog(fixture, gf, ga);
     return;
   }
   if (fixture.type.endsWith('-group')) {
     CAREER.europeGroup.results.push({ oppIdx: fixture.oppIdx, gf, ga });
+    pushCareerMatchLog(fixture, gf, ga);
     if (CAREER.europeGroup.results.length >= 3) resolveEuropeGroup();
     return;
   }
   if (fixture.type.endsWith('-knockout')) {
     const comp = fixture.type.startsWith('ucl') ? 'ucl' : 'uel';
     const winPrize = comp === 'ucl' ? UCL_WIN_PRIZE : UEL_WIN_PRIZE;
-    if (gf > ga) {
+    // Two-legged tie: leg 1 just records its score and waits - the
+    // advance/eliminate decision only ever happens once leg 2's aggregate is
+    // known (see resolveEuropeGroup for where both legs get scheduled). Each
+    // leg is still its own played match, so it still gets its own log row
+    // and its own honest W/D/L (a single leg drawing is normal, no decider
+    // needed at that level - the decider only ever applies to the aggregate).
+    pushCareerMatchLog(fixture, gf, ga);
+    if (fixture.leg === 1) {
+      CAREER.pendingKnockoutLeg1 = { gf, ga };
+      showToast(`Leg 1: ${gf}-${ga} vs ${ALL_CLUBS[fixture.oppIdx].name}`, '#93c5fd');
+      return;
+    }
+    const leg1 = CAREER.pendingKnockoutLeg1 || { gf: 0, ga: 0 };
+    const aggGf = leg1.gf + gf, aggGa = leg1.ga + ga;
+    CAREER.pendingKnockoutLeg1 = null;
+    let wonTie = aggGf > aggGa;
+    let decidedByPens = false;
+    if (aggGf === aggGa) {
+      wonTie = simCupPensDecider(careerSquadStrength(), effectiveClub(fixture.oppIdx).strength || 1);
+      decidedByPens = true;
+    }
+    if (wonTie) {
       const roundsLeft = CAREER.fixtures.some((f, i) => i > CAREER.fixtureIdx && f.type === fixture.type);
       if (!roundsLeft) {
         CAREER.budget += winPrize;
         if (comp === 'ucl') CAREER.uclTitlesWon++; else CAREER.uelTitlesWon++;
+        const lt = loadLifetime();
+        const ltKey = comp === 'ucl' ? 'uclWon' : 'uelWon';
+        lt[ltKey] = (lt[ltKey] || 0) + 1;
+        saveLifetime(lt);
         CAREER.seasonTrophies[comp] = true;
-        showToast(`🏆 Won the ${fixtureCompetitionLabel(fixture)}! +£${winPrize}m`, '#ffd54f');
+        showToast(`🏆 Won the ${fixtureCompetitionLabel(fixture)} ${aggGf}-${aggGa}${decidedByPens ? ' on pens' : ' on aggregate'}! +£${winPrize}m`, '#ffd54f');
         CAREER.europeGroup = null;
+      } else if (decidedByPens) {
+        showToast(`Won on penalties ${aggGf}-${aggGa} on aggregate vs ${ALL_CLUBS[fixture.oppIdx].name}!`, '#4ade80');
       }
     } else {
       CAREER.fixtures = CAREER.fixtures.filter((f, i) => !(i > CAREER.fixtureIdx && f.type === fixture.type));
-      showToast(`Eliminated from the ${fixtureCompetitionLabel(fixture)}`, '#e63946');
+      showToast(`${decidedByPens ? 'Lost on penalties, e' : 'E'}liminated from the ${fixtureCompetitionLabel(fixture)} ${aggGf}-${aggGa}${decidedByPens ? '' : ' on aggregate'}`, '#e63946');
       CAREER.europeGroup = null;
     }
     return;
   }
-  // facup / leaguecup
-  if (gf > ga) {
+  // facup / leaguecup - a level scoreline after 90 minutes goes to a simmed
+  // penalty shootout instead of auto-eliminating.
+  let wonTie = gf > ga;
+  let decidedByPens = false;
+  if (gf === ga) {
+    wonTie = simCupPensDecider(careerSquadStrength(), effectiveClub(fixture.oppIdx).strength || 1);
+    decidedByPens = true;
+  }
+  pushCareerMatchLog(fixture, gf, ga, wonTie ? 'W' : 'L');
+  if (wonTie) {
     const roundsLeft = CAREER.fixtures.some((f, i) => i > CAREER.fixtureIdx && f.type === fixture.type);
     if (!roundsLeft) {
       CAREER.budget += CUP_PRIZE;
       if (fixture.type === 'facup') CAREER.faCupsWon++; else CAREER.leagueCupsWon++;
       CAREER.seasonTrophies[fixture.type] = true;
-      showToast(`🏆 Won the ${fixtureCompetitionLabel(fixture)}! +£${CUP_PRIZE}m`, '#ffd54f');
+      showToast(`🏆 Won the ${fixtureCompetitionLabel(fixture)}${decidedByPens ? ' on penalties' : ''}! +£${CUP_PRIZE}m`, '#ffd54f');
+    } else if (decidedByPens) {
+      showToast(`Won on penalties vs ${ALL_CLUBS[fixture.oppIdx].name}!`, '#4ade80');
     }
   } else {
     CAREER.fixtures = CAREER.fixtures.filter((f, i) => !(i > CAREER.fixtureIdx && f.type === fixture.type));
+    showToast(`${decidedByPens ? 'Lost on penalties, e' : 'E'}liminated from the ${fixtureCompetitionLabel(fixture)}`, '#e63946');
   }
 }
 
@@ -2884,8 +3000,16 @@ function resolveEuropeGroup() {
     const pool = europeStrengthBand('top').filter(i => !oppIdxs.includes(i));
     const knockoutOpps = shuffled(pool).slice(0, knockoutRounds.length)
       .sort((a, b) => (effectiveClub(a).strength || 1) - (effectiveClub(b).strength || 1)); // tougher as rounds progress, e.g. the Final is toughest
+    // Two-legged (home + away, aggregate score) rather than one-off matches -
+    // each round gets a Leg 1 and Leg 2 fixture back to back; see
+    // applyCareerFixtureResult's '-knockout' branch for how the aggregate is
+    // resolved once leg 2 is played.
+    let insertAt = CAREER.fixtureIdx + 1;
     knockoutRounds.forEach((_, i) => {
-      CAREER.fixtures.splice(CAREER.fixtureIdx + 1 + i, 0, { type: `${comp}-knockout`, oppIdx: knockoutOpps[i], round: i });
+      CAREER.fixtures.splice(insertAt, 0,
+        { type: `${comp}-knockout`, oppIdx: knockoutOpps[i], round: i, leg: 1 },
+        { type: `${comp}-knockout`, oppIdx: knockoutOpps[i], round: i, leg: 2 });
+      insertAt += 2;
     });
     CAREER.europeGroup = null;
   } else {
@@ -3850,7 +3974,7 @@ function isOffside(receiver, team) {
 function checkOffsideAndCall(target, team, exempt) {
   if (exempt || !target || !isOffside(target, team)) return false;
   SFX.whistle();
-  showToast(pick(['OFFSIDE!', 'Flag Up - Offside', 'Caught Offside']), '#eab308');
+  showToast(pick(['🚫 OFFSIDE!', '🚫 Flag Up - Offside', '🚫 Caught Offside']), '#eab308');
   const offsideTeamName = document.getElementById(target.__team === 0 ? 'score-home-name' : 'score-away-name').textContent;
   logMatchEvent(`🚫 Offside - ${offsideTeamName} - ${playerLabel(target)}`);
   const spot = { x: clamp(target.pos.x, 3, PITCH_LEN - 3), y: clamp(target.pos.y, 2, PITCH_WID - 2) };
@@ -4154,6 +4278,7 @@ function confettiBurst(color, perSide) {
 // Keeps confetti falling across the whole (now longer) goal celebration
 // instead of one burst fizzling out partway through it.
 function launchConfetti(color) {
+  if (G.reducedMotion) return;
   confettiBurst(color, 35);
   G.confettiTimeouts.push(setTimeout(() => confettiBurst(color, 22), 900));
   G.confettiTimeouts.push(setTimeout(() => confettiBurst(color, 22), 1900));
@@ -4592,9 +4717,9 @@ const GOAL_MILESTONES = [1, 10, 25, 50, 100];
 const WIN_MILESTONES = [1, 5, 10, 25];
 function loadLifetime() {
   try {
-    return Object.assign({ goals: 0, wins: 0, matches: 0, cupsWon: 0 }, JSON.parse(localStorage.getItem(LIFETIME_KEY)));
+    return Object.assign({ goals: 0, wins: 0, matches: 0, cupsWon: 0, uclWon: 0, uelWon: 0 }, JSON.parse(localStorage.getItem(LIFETIME_KEY)));
   } catch (e) {
-    return { goals: 0, wins: 0, matches: 0, cupsWon: 0 };
+    return { goals: 0, wins: 0, matches: 0, cupsWon: 0, uclWon: 0, uelWon: 0 };
   }
 }
 function saveLifetime(lt) {
@@ -4612,7 +4737,9 @@ function renderStatsScreen() {
     tile(lt.wins, 'Wins') +
     tile(lt.goals, 'Goals Scored') +
     tile(winPct + '%', 'Win Rate') +
-    tile(lt.cupsWon, 'Cups Won');
+    tile(lt.cupsWon, 'Cups Won') +
+    tile(lt.uclWon || 0, 'Champions Leagues') +
+    tile(lt.uelWon || 0, 'Europa Leagues');
 }
 
 // Builds the stats table and achievement list shown on the full-time screen.
@@ -5539,6 +5666,14 @@ function showScreen(id) {
   ['main-menu', 'setup-screen', 'season-setup-screen', 'season-table-screen', 'cup-setup-screen', 'cup-progress-screen', 'practice-setup-screen', 'settings-screen', 'stats-screen', 'career-slots-screen', 'career-club-screen', 'career-dashboard-screen', 'career-lineup-screen', 'career-table-screen', 'career-history-screen', 'career-transfer-screen', 'online-menu-screen', 'online-host-screen', 'online-join-screen', 'online-teampick-screen', 'match-screen'].forEach(s => {
     document.getElementById(s).classList.toggle('hidden', s !== id);
   });
+  // Single hook point for every path back to the menu (goToMainMenu's full
+  // cleanup, or any of the plain "Back" buttons that just call showScreen
+  // directly) - so the Continue Career card is always up to date regardless
+  // of which one brought you here.
+  if (id === 'main-menu') updateMenuContinueCareerCard();
+  // Home shortcut hidden on the main menu itself (redundant) and mid-match
+  // (has its own deliberate Pause -> Quit flow instead) - shown everywhere else.
+  document.getElementById('btn-home').classList.toggle('hidden', id === 'main-menu' || id === 'match-screen');
 }
 
 function goToMainMenu() {
@@ -5595,10 +5730,87 @@ function saveSettings(patch) {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(Object.assign(loadSettings(), patch))); } catch (e) { /* localStorage unavailable - settings just won't persist */ }
 }
 
+// ---------- Save data backup/restore (Settings > Data) ----------
+// Everything this game persists lives only in this browser's localStorage -
+// clearing site data, switching browsers/devices, or a browser reinstall
+// would silently lose every Career save. This bundles all of it (every
+// Career slot, lifetime stats, settings, audio prefs) into one downloadable
+// file, and can restore from that same file later.
+const SAVE_BACKUP_FORMAT = 'retro-ball-save';
+function gatherAllSaveData() {
+  const careerSlots = {};
+  for (let n = 1; n <= CAREER_SLOTS; n++) {
+    const data = loadCareerSlot(n);
+    if (data) careerSlots[n] = data;
+  }
+  return {
+    format: SAVE_BACKUP_FORMAT,
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    careerSlots,
+    lifetime: loadLifetime(),
+    settings: loadSettings(),
+    muted: SFX.isMuted(),
+    volume: SFX.getVolume(),
+  };
+}
+function exportSaveData() {
+  const bundle = gatherAllSaveData();
+  const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `retro-ball-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  const statusEl = document.getElementById('save-io-status');
+  if (statusEl) statusEl.textContent = 'Backup downloaded.';
+}
+// Confirmed via a native confirm() rather than a custom overlay - this is the
+// one genuinely destructive, irreversible action in Settings (overwrites
+// every local save), and no lighter-weight confirmation pattern already
+// exists elsewhere in this codebase to reuse instead.
+function importSaveDataFromFile(file) {
+  const statusEl = document.getElementById('save-io-status');
+  const reader = new FileReader();
+  reader.onload = () => {
+    let bundle;
+    try { bundle = JSON.parse(reader.result); } catch (e) {
+      statusEl.textContent = "That file isn't valid JSON.";
+      return;
+    }
+    if (!bundle || bundle.format !== SAVE_BACKUP_FORMAT || !bundle.careerSlots) {
+      statusEl.textContent = "That file isn't a Retro Ball backup.";
+      return;
+    }
+    const slotCount = Object.keys(bundle.careerSlots).length;
+    const when = bundle.exportedAt ? new Date(bundle.exportedAt).toLocaleString() : 'an unknown date';
+    const ok = window.confirm(
+      `This will overwrite your current career saves, stats, and settings on this device with the backup from ${when} ` +
+      `(${slotCount} career save${slotCount === 1 ? '' : 's'}). This can't be undone. Continue?`
+    );
+    if (!ok) { statusEl.textContent = 'Import cancelled.'; return; }
+    Object.keys(bundle.careerSlots).forEach(n => saveCareerSlot(Number(n), bundle.careerSlots[n]));
+    if (bundle.lifetime) saveLifetime(bundle.lifetime);
+    if (bundle.settings) saveSettings(bundle.settings);
+    if (bundle.volume != null) SFX.setVolume(bundle.volume);
+    if (bundle.muted != null) SFX.setMuted(bundle.muted);
+    statusEl.textContent = 'Backup restored - go to Career from the main menu to see your saves.';
+  };
+  reader.onerror = () => { statusEl.textContent = 'Could not read that file.'; };
+  reader.readAsText(file);
+}
+
 // ---------- Match Setup (Play) screen - custom team/clock/rank UI ----------
 const HALF_LENGTH_OPTIONS = [1, 2, 3, 5, 10];
-const RANK_SKILLS = ['easy', 'medium', 'hard', 'expert', 'legendary', 'champion'];
-const playSetup = { yourIdx: 0, oppIdx: 1, halfIdx: 1, skillKey: 'medium' };
+// Bronze..Champion, in order - shifted two tiers harder than the original
+// easy..champion ladder (see SKILLS/DIFFICULTY_OPPONENT_BOOST); a saved
+// preference of 'easy'/'medium' from before this change no longer validates
+// here and falls back to the new default rank instead.
+const RANK_SKILLS = ['hard', 'expert', 'legendary', 'champion', 'grandmaster', 'legend'];
+const playSetup = { yourIdx: 0, oppIdx: 1, halfIdx: 1, skillKey: 'expert' };
 
 function renderPlaySetupTeam(which) {
   const idx = which === 'your' ? playSetup.yourIdx : playSetup.oppIdx;
@@ -5647,7 +5859,7 @@ function populateSetupScreen() {
   if (playSetup.yourIdx === playSetup.oppIdx) playSetup.oppIdx = (playSetup.yourIdx + 1) % TEAMS.length;
   const savedHalfIdx = HALF_LENGTH_OPTIONS.indexOf(saved.halfLen);
   playSetup.halfIdx = savedHalfIdx !== -1 ? savedHalfIdx : 1;
-  playSetup.skillKey = saved.skillKey && RANK_SKILLS.includes(saved.skillKey) ? saved.skillKey : 'medium';
+  playSetup.skillKey = saved.skillKey && RANK_SKILLS.includes(saved.skillKey) ? saved.skillKey : 'expert';
 
   renderPlaySetupTeam('your');
   renderPlaySetupTeam('opp');
@@ -5669,7 +5881,7 @@ function populateSetupScreen() {
 }
 
 // ---------- Season Setup screen - same custom team/clock/rank UI as Match Setup ----------
-const seasonSetup = { yourIdx: 0, halfIdx: 1, skillKey: 'medium' };
+const seasonSetup = { yourIdx: 0, halfIdx: 1, skillKey: 'expert' };
 
 function renderSeasonSetupTeam() {
   const def = TEAMS[seasonSetup.yourIdx];
@@ -5704,7 +5916,7 @@ function populateSeasonSetupScreen() {
   seasonSetup.yourIdx = saved.seasonYourIdx != null ? saved.seasonYourIdx : 0;
   const savedHalfIdx = HALF_LENGTH_OPTIONS.indexOf(saved.seasonHalfLen);
   seasonSetup.halfIdx = savedHalfIdx !== -1 ? savedHalfIdx : 1;
-  seasonSetup.skillKey = saved.seasonSkillKey && RANK_SKILLS.includes(saved.seasonSkillKey) ? saved.seasonSkillKey : 'medium';
+  seasonSetup.skillKey = saved.seasonSkillKey && RANK_SKILLS.includes(saved.seasonSkillKey) ? saved.seasonSkillKey : 'expert';
 
   renderSeasonSetupTeam();
   renderSeasonSetupHalf();
@@ -5723,7 +5935,7 @@ function populateSeasonSetupScreen() {
 }
 
 // ---------- Cup Setup screen - same custom team/clock/rank UI ----------
-const cupSetup = { yourIdx: 0, halfIdx: 1, skillKey: 'medium' };
+const cupSetup = { yourIdx: 0, halfIdx: 1, skillKey: 'expert' };
 
 function renderCupSetupTeam() {
   const def = TEAMS[cupSetup.yourIdx];
@@ -5758,7 +5970,7 @@ function populateCupSetupScreen() {
   cupSetup.yourIdx = saved.cupYourIdx != null ? saved.cupYourIdx : 0;
   const savedHalfIdx = HALF_LENGTH_OPTIONS.indexOf(saved.cupHalfLen);
   cupSetup.halfIdx = savedHalfIdx !== -1 ? savedHalfIdx : 1;
-  cupSetup.skillKey = saved.cupSkillKey && RANK_SKILLS.includes(saved.cupSkillKey) ? saved.cupSkillKey : 'medium';
+  cupSetup.skillKey = saved.cupSkillKey && RANK_SKILLS.includes(saved.cupSkillKey) ? saved.cupSkillKey : 'expert';
 
   renderCupSetupTeam();
   renderCupSetupHalf();
@@ -5780,7 +5992,7 @@ function populateCupSetupScreen() {
 // drill-type selector using the same clock-box arrow-cycling mechanic ----------
 const PRACTICE_MODE_OPTIONS = ['penalty', 'freekick'];
 const PRACTICE_MODE_LABEL = { penalty: 'Penalties', freekick: 'Free Kicks' };
-const practiceSetup = { yourIdx: 0, modeIdx: 0, skillKey: 'medium' };
+const practiceSetup = { yourIdx: 0, modeIdx: 0, skillKey: 'expert' };
 
 function renderPracticeSetupTeam() {
   const def = TEAMS[practiceSetup.yourIdx];
@@ -5815,7 +6027,7 @@ function populatePracticeSetupScreen() {
   practiceSetup.yourIdx = saved.practiceYourIdx != null ? saved.practiceYourIdx : 0;
   const savedModeIdx = PRACTICE_MODE_OPTIONS.indexOf(saved.practiceMode);
   practiceSetup.modeIdx = savedModeIdx !== -1 ? savedModeIdx : 0;
-  practiceSetup.skillKey = saved.practiceSkillKey && RANK_SKILLS.includes(saved.practiceSkillKey) ? saved.practiceSkillKey : 'medium';
+  practiceSetup.skillKey = saved.practiceSkillKey && RANK_SKILLS.includes(saved.practiceSkillKey) ? saved.practiceSkillKey : 'expert';
 
   renderPracticeSetupTeam();
   renderPracticeSetupMode();
@@ -5838,7 +6050,7 @@ function populatePracticeSetupScreen() {
 // clock + rank grid) - the only difference is "Start" creates a brand new
 // CAREER into whichever slot the user picked on the slots screen, tracked in
 // careerCreatingSlot rather than reading/writing a season/cup in progress.
-const careerClubSetup = { leagueIdx: 0, clubIdx: 0, halfIdx: 1, skillKey: 'medium' };
+const careerClubSetup = { leagueIdx: 0, clubIdx: 0, halfIdx: 1, skillKey: 'expert' };
 let careerCreatingSlot = null;
 
 // The club list shown/cycled is always filtered down to whichever league is
@@ -5951,7 +6163,7 @@ function renderCareerSlotsScreen() {
       actions.className = 'slot-actions';
       const loadBtn = document.createElement('button');
       loadBtn.textContent = 'Continue';
-      loadBtn.onclick = () => { CAREER = data; restoreCareerNextPlayerId(data); showCareerDashboard(); };
+      loadBtn.onclick = () => { CAREER = data; restoreCareerNextPlayerId(data); saveSettings({ lastCareerSlot: slot }); showCareerDashboard(); };
       const delBtn = document.createElement('button');
       delBtn.textContent = 'Delete';
       delBtn.onclick = () => { deleteCareerSlot(slot); renderCareerSlotsScreen(); };
@@ -6003,6 +6215,12 @@ function renderCareerDashboard() {
   const offersBadge = document.getElementById('career-offers-badge');
   offersBadge.textContent = offerCount;
   offersBadge.classList.toggle('hidden', offerCount === 0);
+  // Previously the season-complete summary only ever showed as a side-effect
+  // of two specific buttons (Sim, or dismissing Full Time) - if neither of
+  // those exact clicks happened next (e.g. backing out and reopening the
+  // save), it was silently lost. Checking it here instead means it's visible
+  // the moment the dashboard renders, however the season actually ended.
+  document.getElementById('career-season-summary-badge').classList.toggle('hidden', !CAREER.lastSeasonSummary);
   const fixtureBox = document.getElementById('career-fixture-box');
   const fixtureEl = document.getElementById('career-next-fixture');
   if (CAREER.fixtureIdx < CAREER.fixtures.length) {
@@ -6321,7 +6539,31 @@ function showSeasonCompleteOverlay(summary) {
 // Every completed season, most recent first, collapsed to a summary line -
 // click a row to expand its full stats in place. See endCareerSeason's
 // seasonSummary shape (CAREER.seasonHistory).
+// Every game played (league, both domestic cups, European group/knockout
+// legs) - newest first, so the most recent result is the first thing seen.
+// See pushCareerMatchLog (applyCareerFixtureResult) for where rows come from.
+const MATCHLOG_RESULT_COLOR = { W: '#4ade80', D: '#9ca3af', L: '#e63946' };
+function renderCareerMatchLog() {
+  const list = document.getElementById('career-matchlog-list');
+  const log = (CAREER.matchLog || []).slice().reverse();
+  if (!log.length) {
+    list.innerHTML = '<p class="hint-text">No games played yet.</p>';
+    return;
+  }
+  list.innerHTML = log.map(m => {
+    const opp = ALL_CLUBS[m.oppIdx] ? ALL_CLUBS[m.oppIdx].name : 'Unknown';
+    const color = MATCHLOG_RESULT_COLOR[m.result] || '#9ca3af';
+    return `<div class="career-matchlog-row">
+      <span class="career-matchlog-result" style="--result-color:${color}">${m.result}</span>
+      <span class="career-matchlog-opp">vs ${opp}</span>
+      <span class="career-matchlog-score">${m.gf}-${m.ga}</span>
+      <span class="career-matchlog-comp">${m.competition}</span>
+    </div>`;
+  }).join('');
+}
+
 function renderCareerHistoryScreen() {
+  renderCareerMatchLog();
   const list = document.getElementById('career-history-list');
   list.innerHTML = '';
   const history = (CAREER.seasonHistory || []).slice().reverse();
@@ -6510,6 +6752,16 @@ document.addEventListener('DOMContentLoaded', () => {
   if (savedGlobal.keys) Object.assign(KEYS, savedGlobal.keys);
   applyKitSensitivity(savedGlobal.kitClashSensitivity || 'normal');
   updateKeyHints();
+  G.reducedMotion = !!savedGlobal.reducedMotion;
+  G.camera.zoom = savedGlobal.cameraZoom || CAMERA_ZOOM;
+  applyControlsSwap(!!savedGlobal.controlsSwapped);
+  G.customizeControls = !!savedGlobal.customizeControls;
+  applySavedControlPositions();
+  // showScreen('main-menu') only fires when something actually navigates
+  // back to it - the menu is just visible by default on first page load, so
+  // this needs its own explicit first call to cover that case.
+  updateMenuContinueCareerCard();
+  document.getElementById('btn-home').onclick = () => goToMainMenu();
 
   document.getElementById('btn-settings').onclick = () => {
     renderKeybindList();
@@ -6519,11 +6771,43 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('kit-sensitivity-normal').classList.toggle('active', level === 'normal');
     document.getElementById('kit-sensitivity-high').classList.toggle('active', level === 'high');
     document.getElementById('kit-sensitivity-colorblind').classList.toggle('active', level === 'colorblind');
+    const s = loadSettings();
+    document.getElementById('settings-reduced-motion').checked = !!s.reducedMotion;
+    document.getElementById('settings-camera-zoom').value = Math.round((s.cameraZoom || CAMERA_ZOOM) * 100);
+    document.getElementById('settings-controls-swap').checked = !!s.controlsSwapped;
+    document.getElementById('settings-controls-customize').checked = !!s.customizeControls;
+    document.getElementById('save-io-status').textContent = '';
     showScreen('settings-screen');
   };
   document.getElementById('btn-settings-back').onclick = () => { showScreen('main-menu'); };
   document.getElementById('settings-volume').oninput = (e) => { SFX.setVolume(e.target.value / 100); };
   document.getElementById('settings-mute').onchange = (e) => { SFX.setMuted(e.target.checked); };
+  document.getElementById('settings-reduced-motion').onchange = (e) => {
+    G.reducedMotion = e.target.checked;
+    saveSettings({ reducedMotion: e.target.checked });
+  };
+  document.getElementById('settings-camera-zoom').oninput = (e) => {
+    const zoom = e.target.value / 100;
+    G.camera.zoom = zoom;
+    saveSettings({ cameraZoom: zoom });
+  };
+  document.getElementById('settings-controls-swap').onchange = (e) => {
+    applyControlsSwap(e.target.checked);
+    saveSettings({ controlsSwapped: e.target.checked });
+  };
+  document.getElementById('settings-controls-customize').onchange = (e) => {
+    G.customizeControls = e.target.checked;
+    saveSettings({ customizeControls: e.target.checked });
+    updateControlsCustomizeVisibility();
+  };
+  document.getElementById('btn-reset-controls-position').onclick = () => { resetControlPositions(); };
+  document.getElementById('btn-export-save').onclick = () => exportSaveData();
+  document.getElementById('btn-import-save').onclick = () => document.getElementById('import-save-file-input').click();
+  document.getElementById('import-save-file-input').onchange = (e) => {
+    const file = e.target.files[0];
+    if (file) importSaveDataFromFile(file);
+    e.target.value = ''; // reset so re-selecting the same file still fires 'change'
+  };
   // One click handler shared by all three kit-sensitivity buttons rather than
   // three near-identical copies - each just toggles its own level on.
   function applyKitSensitivity(level) {
@@ -6634,6 +6918,13 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-formation-next').onclick = () => cycleCareerFormation(1);
   document.getElementById('btn-lineup-auto').onclick = () => resetCareerLineupToAuto();
   document.getElementById('btn-career-table').onclick = () => { renderCareerTableScreen(); showScreen('career-table-screen'); };
+  document.getElementById('career-season-summary-badge').onclick = () => {
+    if (!CAREER.lastSeasonSummary) return;
+    const summary = CAREER.lastSeasonSummary;
+    CAREER.lastSeasonSummary = null;
+    renderCareerDashboard();
+    showSeasonCompleteOverlay(summary);
+  };
   document.getElementById('btn-career-table-back').onclick = () => { showCareerDashboard(); };
   document.getElementById('career-club-box').onclick = () => { renderCareerHistoryScreen(); showScreen('career-history-screen'); };
   document.getElementById('btn-career-history-back').onclick = () => { showCareerDashboard(); };
@@ -6891,6 +7182,7 @@ function bindChargeButton(id, kind) {
 function setTouchControlsVisible(show) {
   document.getElementById('touch-controls').classList.toggle('hidden', !show);
   document.getElementById('btn-toggle-input').textContent = show ? 'Keyboard Controls' : 'Touch Controls';
+  if (show) updateControlsCustomizeVisibility();
 }
 
 function setupTouchControls() {
@@ -6900,6 +7192,7 @@ function setupTouchControls() {
   document.getElementById('td-tackle').addEventListener('pointerdown', (e) => { e.preventDefault(); tryHumanTackle(); });
   document.getElementById('td-switch').addEventListener('pointerdown', (e) => { e.preventDefault(); trySwitchPlayer(); });
   document.getElementById('td-run').addEventListener('pointerdown', (e) => { e.preventDefault(); callTeammateRun(); });
+  setupControlsCustomization();
 
   let touchControlsOn = window.matchMedia('(pointer: coarse)').matches;
   setTouchControlsVisible(touchControlsOn);
@@ -6907,6 +7200,85 @@ function setupTouchControls() {
     touchControlsOn = !touchControlsOn;
     setTouchControlsVisible(touchControlsOn);
   };
+}
+
+// Settings > Touch Controls > "Swap Sides" - mirrors which side the joystick
+// vs the action buttons land on (see .controls-swapped in style.css).
+function applyControlsSwap(swapped) {
+  document.getElementById('touch-controls').classList.toggle('controls-swapped', swapped);
+}
+
+// Settings > Touch Controls > "Customize Positions" - reveals the drag
+// handles (see .control-drag-handle) over the joystick/action-button groups
+// so they can be dragged instead of used to actually play, without ever
+// confusing a real steer/tackle/pass input with a reposition drag.
+function updateControlsCustomizeVisibility() {
+  document.getElementById('joystick-drag-handle').classList.toggle('hidden', !G.customizeControls);
+  document.getElementById('actions-drag-handle').classList.toggle('hidden', !G.customizeControls);
+}
+
+// Writes a percentage-based position directly onto the joystick/actions
+// wrapper, overriding its normal flex placement - percentages are relative to
+// the viewport (see the top:0 note on #touch-controls in style.css) so this
+// lines up with the window.innerWidth/innerHeight math in makeControlDraggable.
+function applyControlPosition(wrap, leftPct, topPct) {
+  wrap.style.position = 'absolute';
+  wrap.style.left = leftPct + '%';
+  wrap.style.top = topPct + '%';
+  wrap.style.bottom = 'auto';
+  wrap.style.right = 'auto';
+}
+
+function applySavedControlPositions() {
+  const s = loadSettings();
+  if (s.joystickPos) applyControlPosition(document.getElementById('touch-joystick'), s.joystickPos.left, s.joystickPos.top);
+  if (s.actionsPos) applyControlPosition(document.getElementById('touch-actions'), s.actionsPos.left, s.actionsPos.top);
+}
+
+// Undoes applyControlPosition, letting the wrapper fall back to its normal
+// flex-based placement (and whatever handedness swap is currently set).
+function resetControlPositions() {
+  ['touch-joystick', 'touch-actions'].forEach(id => {
+    const el = document.getElementById(id);
+    el.style.position = ''; el.style.left = ''; el.style.top = ''; el.style.bottom = ''; el.style.right = '';
+  });
+  saveSettings({ joystickPos: null, actionsPos: null });
+}
+
+function makeControlDraggable(handle, wrap, settingsKey) {
+  let dragPointerId = null, startClientX = 0, startClientY = 0, startLeftPct = 0, startTopPct = 0;
+  handle.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    dragPointerId = e.pointerId;
+    handle.setPointerCapture(e.pointerId);
+    startClientX = e.clientX;
+    startClientY = e.clientY;
+    const rect = wrap.getBoundingClientRect();
+    startLeftPct = (rect.left / window.innerWidth) * 100;
+    startTopPct = (rect.top / window.innerHeight) * 100;
+  });
+  handle.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== dragPointerId) return;
+    e.preventDefault();
+    const leftPct = clamp(startLeftPct + ((e.clientX - startClientX) / window.innerWidth) * 100, 0, 90);
+    const topPct = clamp(startTopPct + ((e.clientY - startClientY) / window.innerHeight) * 100, 0, 90);
+    applyControlPosition(wrap, leftPct, topPct);
+  });
+  const end = (e) => {
+    if (e.pointerId !== dragPointerId) return;
+    dragPointerId = null;
+    const rect = wrap.getBoundingClientRect();
+    const leftPct = (rect.left / window.innerWidth) * 100;
+    const topPct = (rect.top / window.innerHeight) * 100;
+    saveSettings({ [settingsKey]: { left: leftPct, top: topPct } });
+  };
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
+}
+
+function setupControlsCustomization() {
+  makeControlDraggable(document.getElementById('joystick-drag-handle'), document.getElementById('touch-joystick'), 'joystickPos');
+  makeControlDraggable(document.getElementById('actions-drag-handle'), document.getElementById('touch-actions'), 'actionsPos');
 }
 
 // Only transitions PLAYING -> PAUSED, never toggles back - safe to call from
