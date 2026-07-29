@@ -1535,7 +1535,11 @@ select {
   position: relative;
   align-items: stretch;
   justify-content: flex-start;
-  padding-top: 60px;
+  /* Was 60px, sized for when .career-market-banner used to overlay the
+     screen via position:absolute - now that it's static (in normal flow,
+     see below), that much top padding was just wasted space pushing the
+     actual player list down and leaving only a sliver of it visible. */
+  padding-top: 8px;
 }
 /* Bug fix: this panel wasn't a flex container itself, so its child
    .career-market-columns (and in turn .career-market-col-list, already
@@ -1555,21 +1559,27 @@ select {
 .career-market-banner {
   position: static;
   transform: none;
-  margin: 0 auto 8px;
+  /* Smaller and tighter than the base .career-slots-banner (which is still
+     used at full size on the actual Career Saves picker) - this one needs
+     to take up as little vertical room as possible so the scrollable
+     content below it gets the space instead. */
+  font-size: 15px;
+  padding: 5px 14px;
+  margin: 0 auto 4px;
   pointer-events: auto;
 }
 .career-market-budget {
   font-size: 15px;
   font-weight: bold;
   align-self: center;
-  margin-bottom: 10px;
+  margin-bottom: 4px;
 }
 .career-market-filters {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 6px;
-  margin-bottom: 10px;
+  margin-bottom: 4px;
   padding: 0 12px;
 }
 .career-market-filter-btn {
@@ -1594,7 +1604,7 @@ select {
   display: flex;
   justify-content: center;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 4px;
 }
 .career-market-tab-btn {
   background: rgba(0, 0, 0, 0.35);

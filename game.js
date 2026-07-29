@@ -1371,13 +1371,27 @@ function processToastQueue() {
 
 // ---------- In-match event ticker ----------
 // A short-lived toast is easy to miss - this keeps the last few goals/cards/
-// subs visible in one place instead of only flashing on screen once.
+// subs visible in one place instead of only flashing on screen once. Each
+// entry clears itself off the ticker after EVENT_LOG_LIFESPAN_MS rather than
+// only being capped by count - previously an entry could sit on screen for
+// the rest of the match if fewer than EVENT_LOG_MAX events followed it,
+// which ate up a lot of screen space over a whole match.
 const EVENT_LOG_MAX = 5;
-function logMatchEvent(text) {
-  G.eventLog.unshift({ text });
-  if (G.eventLog.length > EVENT_LOG_MAX) G.eventLog.length = EVENT_LOG_MAX;
+const EVENT_LOG_LIFESPAN_MS = 8000;
+let eventLogNextId = 1;
+function renderEventTicker() {
   const el = document.getElementById('event-ticker');
   if (el) el.innerHTML = G.eventLog.map(e => `<div class="ticker-row">${e.text}</div>`).join('');
+}
+function logMatchEvent(text) {
+  const id = eventLogNextId++;
+  G.eventLog.unshift({ text, id });
+  if (G.eventLog.length > EVENT_LOG_MAX) G.eventLog.length = EVENT_LOG_MAX;
+  renderEventTicker();
+  setTimeout(() => {
+    G.eventLog = G.eventLog.filter(e => e.id !== id);
+    renderEventTicker();
+  }, EVENT_LOG_LIFESPAN_MS);
   if (G.online && G.online.role === 'host') sendOnlineMessage({ type: 'event', text });
 }
 
@@ -1394,7 +1408,11 @@ function shakeScreen() {
 // Game state
 // ============================================================
 const STATE = { MENU: 'MENU', SETUP: 'SETUP', PLAYING: 'PLAYING', PAUSED: 'PAUSED', GOAL: 'GOAL', HALFTIME: 'HALFTIME', FULLTIME: 'FULLTIME', SHOOTOUT: 'SHOOTOUT', PRACTICE: 'PRACTICE' };
-const GOAL_CELEBRATION_SEC = 3375; // ms despite the name - 3/4 of the old 4500ms length
+// ms despite the name. Long enough to comfortably fit the ~6s goal replay
+// clip (see REPLAY_BUFFER_MAX) plus a couple of seconds of banner hold
+// afterward - if this were shorter than the replay, the safety net in
+// scoreGoal would cut the replay off before it finished.
+const GOAL_CELEBRATION_SEC = 8000;
 
 const G = {
   state: STATE.MENU,
@@ -4290,7 +4308,10 @@ function launchConfetti(color) {
 // during the goal celebration - purely local on each side (host records its
 // own live sim, the guest records whatever it's already rendering via
 // interpolateShadowState), so no network message is needed to sync it.
-const REPLAY_BUFFER_MAX = 90; // ~1.5s of build-up at ~60fps
+// ~3s of real build-up at ~60fps - played back at half-speed (see
+// stepGoalReplay), so this is a ~6s clip, long enough to actually show the
+// shot/goal itself rather than cutting off right as it happens.
+const REPLAY_BUFFER_MAX = 180;
 function snapshotPositions() {
   return {
     p: G.teams.map(team => team.players.map(p => ({ x: p.pos.x, y: p.pos.y, vx: p.vel.x, vy: p.vel.y }))),
