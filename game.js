@@ -20,6 +20,7 @@ const MARGIN = 40;          // canvas margin around the pitch
 const GOAL_WIDTH = 7.32;
 const BOX_DEPTH = 16.5;
 const BOX_WIDTH = 40.32;
+const SIX_YARD_DEPTH = 5.5;
 const SIX_DEPTH = 5.5;
 const SIX_WIDTH = 18.32;
 const CENTER_CIRCLE_R = 9.15;
@@ -199,7 +200,7 @@ const TEAMS = [
       MID: ['Bruno Fernandes', 'Manuel Ugarte', 'Casemiro', 'Kobbie Mainoo', 'Toby Collyer'],
       FWD: ['Bryan Mbeumo', 'Rasmus Højlund', 'Mason Mount', 'Matheus Cunha', 'Amad Diallo', 'Joshua Zirkzee'],
     } },
-  { name: 'Newcastle United', shirt: '#241F20', shorts: '#241F20', strength: 1.08, press: 'high', away: { shirt: '#5B2A86', shorts: '#FFFFFF' },
+  { name: 'Newcastle United', shirt: '#241F20', shorts: '#241F20', stripe: '#FFFFFF', strength: 1.08, press: 'high', away: { shirt: '#5B2A86', shorts: '#FFFFFF' },
     squad: {
       GK: ['Nick Pope', 'Martin Dúbravka', 'John Ruddy'],
       DEF: ['Sven Botman', 'Fabian Schär', 'Kieran Trippier', 'Dan Burn', 'Tino Livramento', 'Lewis Hall', 'Jamaal Lascelles', 'Malick Thiaw'],
@@ -213,7 +214,7 @@ const TEAMS = [
       MID: ['Nicolás Domínguez', 'Ibrahim Sangaré', 'Elliot Anderson', 'Douglas Luiz', 'Ryan Yates'],
       FWD: ['Chris Wood', 'Callum Hudson-Odoi', 'Anthony Elanga', 'Taiwo Awoniyi', 'Morgan Gibbs-White', 'Dan Ndoye'],
     } },
-  { name: 'Sunderland', shirt: '#EB172B', shorts: '#000000', strength: 0.86, press: 'low', away: { shirt: '#FFFFFF', shorts: '#1B1464' },
+  { name: 'Sunderland', shirt: '#EB172B', shorts: '#000000', stripe: '#FFFFFF', strength: 0.86, press: 'low', away: { shirt: '#FFFFFF', shorts: '#1B1464' },
     squad: {
       GK: ['Anthony Patterson', 'Simon Moore', 'Anton Baidoo'],
       DEF: ['Dan Ballard', "Luke O'Nien", 'Trai Hume', 'Dennis Cirkin', 'Aji Alese', 'Nordi Mukiele', 'Reinildo Mandava', 'Leo Hjelde'],
@@ -258,7 +259,7 @@ const CHAMPIONSHIP_TEAMS = [
     MID: ['Wilfred Ndidi', 'Bilal El Khannouss', 'Hamza Choudhury', 'Oliver Skipp', 'Ben Nelson', 'Tawanda Chirewa'],
     FWD: ['Patson Daka', 'Stephy Mavididi', 'Abdul Fatawu', 'Jordan Ayew'],
   } },
-  { name: 'Southampton', shirt: '#D71920', shorts: '#000000', strength: 1.03, press: 'high', squad: {
+  { name: 'Southampton', shirt: '#D71920', shorts: '#000000', stripe: '#FFFFFF', strength: 1.03, press: 'high', squad: {
     GK: ['Alex McCarthy', 'Joe Lumley', 'Harry Lewis'],
     DEF: ['Jan Bednarek', 'Jack Stephens', 'Ryan Manning', 'Yukinari Sugawara', 'Taylor Harwood-Bellis', 'Callum Slattery', 'Leon Pascoe'],
     MID: ['Flynn Downes', 'Will Smallbone', 'Shea Charles', 'Alex Jankewitz', 'Callum Chambers'],
@@ -270,7 +271,7 @@ const CHAMPIONSHIP_TEAMS = [
     MID: ['Sam Morsy', 'Jens Cajuste', 'Jack Taylor', 'Massimo Luongo', 'Kalvin Phillips'],
     FWD: ['Omari Hutchinson', 'George Hirst', 'Nathan Broadhead', 'Kaya Kaya Kambi'],
   } },
-  { name: 'West Bromwich Albion', shirt: '#122F67', shorts: '#FFFFFF', strength: 0.95, press: 'mid', squad: {
+  { name: 'West Bromwich Albion', shirt: '#122F67', shorts: '#FFFFFF', stripe: '#FFFFFF', strength: 0.95, press: 'mid', squad: {
     GK: ['Josh Griffiths', 'Alex Palmer', 'Wes Foderingham'],
     DEF: ['Semi Ajayi', 'Kyle Bartley', 'Conor Townsend', 'Erik Pieters', 'Torbjørn Heggem', 'Cedric Kipre', 'Zac Ashworth'],
     MID: ['Jayson Molumby', 'Alex Mowatt', 'John Swift', 'Jed Wallace', 'Mikey Johnston'],
@@ -300,7 +301,7 @@ const CHAMPIONSHIP_TEAMS = [
     MID: ['Ken Sema', 'Yaser Asprilla', 'Edo Kayembe', 'Giorgi Chakvetadze', 'Tom Dele-Bashiru'],
     FWD: ['Rhys Healey', 'Vakoun Bayo', 'Mileta Rajović', 'Matheus Martins', 'Rocco Vata'],
   } },
-  { name: 'Sheffield United', shirt: '#EE2737', shorts: '#000000', strength: 0.97, press: 'high', squad: {
+  { name: 'Sheffield United', shirt: '#EE2737', shorts: '#000000', stripe: '#FFFFFF', strength: 0.97, press: 'high', squad: {
     GK: ['Michael Cooper', 'Adam Davies', 'Louie Marsh'],
     DEF: ['Anel Ahmedhodžić', 'Jack Robinson', 'Rhys Norrington-Davies', 'Chris Basham', 'Femi Seriki', 'Jayden Bogle', 'Michael Craig'],
     MID: ['Sydie Peck', 'Gustavo Hamer', 'Vinícius Souza', 'Tom Davies', 'Andre Brooks'],
@@ -348,7 +349,7 @@ const CHAMPIONSHIP_TEAMS = [
     MID: ['Yuki Ohashi', 'Joe Rankin-Costello', 'Sammie Szmodics', 'Vytas Duda'],
     FWD: ['Arnor Sigurdsson', 'Andreas Weimann', 'Todd Cantwell', 'Makenzie Kirk'],
   } },
-  { name: 'Stoke City', shirt: '#E03A3E', shorts: '#FFFFFF', strength: 0.92, press: 'mid', squad: {
+  { name: 'Stoke City', shirt: '#E03A3E', shorts: '#FFFFFF', stripe: '#FFFFFF', strength: 0.92, press: 'mid', squad: {
     GK: ['Viktor Johansson', 'Jack Bonham', 'Jetameion Gordon'],
     DEF: ['Ben Wilmot', 'Michael Rose', 'Enda Stevens', 'Junior Tchamadeu', 'Connor Taylor'],
     MID: ['Andrew Moran', 'Lewis Baker', 'Eric Bocat', 'Nathan Lowe', 'Wouter Burger'],
@@ -411,7 +412,7 @@ const SERIE_A_TEAMS = [
     MID: ['Bryan Cristante', 'Manu Koné', 'Lorenzo Pellegrini', 'Leandro Paredes', 'Niccolò Pisilli'],
     FWD: ['Artem Dovbyk', 'Paulo Dybala', 'Matías Soulé', 'Eldor Shomurodov', 'Tommaso Baldanzi'],
   } },
-  { name: 'Juventus', shirt: '#FFFFFF', shorts: '#000000', strength: 1.10, press: 'mid', squad: {
+  { name: 'Juventus', shirt: '#FFFFFF', shorts: '#000000', stripe: '#000000', strength: 1.10, press: 'mid', squad: {
     GK: ['Michele Di Gregorio', 'Mattia Perin', 'Carlo Pinsoglio'],
     DEF: ['Gleison Bremer', 'Federico Gatti', 'Pierre Kalulu', 'Andrea Cambiaso', 'Juan Cabal', 'Lloyd Kelly', 'Nicolò Savona'],
     MID: ['Manuel Locatelli', 'Khéphren Thuram', 'Teun Koopmeiners', 'Weston McKennie', 'Fabio Miretti'],
@@ -423,7 +424,7 @@ const SERIE_A_TEAMS = [
     MID: ['Youssouf Fofana', 'Ismaël Bennacer', 'Luka Modrić', 'Yunus Musah', 'Warren Bondo'],
     FWD: ['Christian Pulisic', 'Santiago Giménez', 'Rafael Leão', 'Tammy Abraham', 'Samuel Chukwueze'],
   } },
-  { name: 'Inter Milan', shirt: '#0C4396', shorts: '#000000', strength: 1.14, press: 'high', squad: {
+  { name: 'Inter Milan', shirt: '#0C4396', shorts: '#000000', stripe: '#000000', strength: 1.14, press: 'high', squad: {
     GK: ['Yann Sommer', 'Josep Martínez', 'Raffaele Di Gennaro'],
     DEF: ['Alessandro Bastoni', 'Francesco Acerbi', 'Benjamin Pavard', 'Denzel Dumfries', 'Federico Dimarco', 'Yann Bisseck', 'Matteo Darmian'],
     MID: ['Hakan Çalhanoğlu', 'Nicolò Barella', 'Henrikh Mkhitaryan', 'Piotr Zieliński', 'Kristjan Asllani'],
@@ -534,7 +535,7 @@ const LA_LIGA_TEAMS = [
     MID: ['Koke', 'Rodrigo De Paul', 'Pablo Barrios', 'Marcos Llorente', 'Conor Gallagher'],
     FWD: ['Julián Álvarez', 'Antoine Griezmann', 'Alexander Sørloth', 'Giuliano Simeone'],
   } },
-  { name: 'Athletic Bilbao', shirt: '#EE2523', shorts: '#FFFFFF', strength: 1.00, press: 'high', squad: {
+  { name: 'Athletic Bilbao', shirt: '#EE2523', shorts: '#FFFFFF', stripe: '#FFFFFF', strength: 1.00, press: 'high', squad: {
     GK: ['Unai Simón', 'Julen Agirrezabala', 'Jon Ander Garrido'],
     DEF: ['Yeray Álvarez', 'Dani Vivian', 'Aitor Paredes', 'Yuri Berchiche', 'Andoni Gorosabel'],
     MID: ['Mikel Vesga', 'Óscar de Marcos', 'Unai Gómez', 'Iñigo Ruiz de Galarreta', 'Beñat Prados'],
@@ -546,7 +547,7 @@ const LA_LIGA_TEAMS = [
     MID: ['Beñat Turrientes', 'Sergio Gómez', 'Brais Méndez', 'Arsen Zakharyan'],
     FWD: ['Mikel Oyarzabal', 'Take Kubo', 'Ander Barrenetxea', 'Umar Sadiq', 'Orri Óskarsson'],
   } },
-  { name: 'Real Betis', shirt: '#00A650', shorts: '#FFFFFF', strength: 0.97, press: 'mid', squad: {
+  { name: 'Real Betis', shirt: '#00A650', shorts: '#FFFFFF', stripe: '#FFFFFF', strength: 0.97, press: 'mid', squad: {
     GK: ['Rui Silva', 'Fran Vieites', 'Adrián San Miguel'],
     DEF: ['Héctor Bellerín', 'Marc Bartra', 'Diego Llorente', 'Álex Moreno', 'Natan'],
     MID: ['Marc Roca', 'Johnny Cardoso', 'Nabil Fekir', 'Sergi Altimira'],
@@ -612,7 +613,7 @@ const LA_LIGA_TEAMS = [
     MID: ['Antonio Blanco', 'Jon Guridi', 'Ianis Hagi', 'Antonio Martínez'],
     FWD: ['Kike García', 'Toni Martínez', 'Carlos Vicente', 'Aleix Vidal'],
   } },
-  { name: 'Espanyol', shirt: '#003DA5', shorts: '#FFFFFF', strength: 0.87, press: 'mid', squad: {
+  { name: 'Espanyol', shirt: '#003DA5', shorts: '#FFFFFF', stripe: '#FFFFFF', strength: 0.87, press: 'mid', squad: {
     GK: ['Fernando Pacheco', 'Joan García', 'Iervolino Gaston'],
     DEF: ['Omar El Hilali', 'Leandro Cabrera', 'Sergi Gómez', 'Brian Oliván', 'Nabil Touaizi'],
     MID: ['Pol Lozano', 'Edu Expósito', 'Álex Kral', 'Marc Pubill'],
@@ -935,6 +936,10 @@ const HUMAN_SPEED = 6.2;
 // real sprint or stop would, instead of teleporting to a new velocity.
 const PLAYER_ACCEL = 26;
 const TACKLE_RADIUS = 1.6;
+// Minimum distance (metres) kept between any two players' centres - stops
+// bodies stacking on top of each other. Smaller than TACKLE_RADIUS so a
+// tackle can still trigger before the shove keeps them apart.
+const PLAYER_MIN_SEP = 1.05;
 const TACKLE_RETRY_SEC = 0.9;
 const PICKUP_RADIUS = 1.1;
 const HUMAN_TACKLE_CHANCE = 0.65;
@@ -947,8 +952,12 @@ const SHOT_MIN_SPEED = 24, SHOT_MAX_SPEED = 36;
 const GK_SAVE_CHANCE = 0.35;
 const GK_SPEED_MULT = 0.55; // goalkeepers move slower than outfield players
 const GOAL_DEPTH = 2;       // how far into the net (metres) players/ball can enter, matches the drawn goal frame
-const GK_SMOTHER_RADIUS = 1.8;
-const GK_SMOTHER_CHANCE = 0.5;
+const GK_SMOTHER_RADIUS = 2.2;
+const GK_SMOTHER_CHANCE = 0.75;
+// Its own (shorter) retry timer, separate from TACKLE_RETRY_SEC - a keeper
+// closing down a dribbler should get several tries as they close the gap,
+// not just one coin-flip attempt before the ball's already crossed the line.
+const GK_SMOTHER_RETRY_SEC = 0.3;
 
 // ---------- Camera (follows the ball, pulled slightly toward your player) ----------
 const CAMERA_ZOOM = 1.6;
@@ -1303,6 +1312,37 @@ function clampToPitch(pos) {
   pos.y = clamp(pos.y, 0.2, PITCH_WID - 0.2);
 }
 
+// Pushes apart any two players (either team, including goalkeepers) who end
+// up closer than PLAYER_MIN_SEP after this frame's movement, so bodies never
+// stack on top of each other - each nudged half the overlap so neither side
+// "wins" the shove. Run once after every player has moved, not per-player
+// mid-loop, so the result doesn't depend on iteration order.
+function resolvePlayerCollisions() {
+  const all = [];
+  for (const team of G.teams) {
+    for (const p of team.players) {
+      if (!p.sentOff) all.push(p);
+    }
+  }
+  for (let i = 0; i < all.length; i++) {
+    for (let j = i + 1; j < all.length; j++) {
+      const a = all[i], b = all[j];
+      let dx = b.pos.x - a.pos.x, dy = b.pos.y - a.pos.y;
+      let d = Math.hypot(dx, dy);
+      if (d >= PLAYER_MIN_SEP) continue;
+      if (d < 1e-6) { // exactly stacked - nudge apart on a fixed axis rather than dividing by zero
+        dx = 1; dy = 0; d = 1;
+      }
+      const push = (PLAYER_MIN_SEP - d) / 2;
+      const nx = dx / d, ny = dy / d;
+      a.pos.x -= nx * push; a.pos.y -= ny * push;
+      b.pos.x += nx * push; b.pos.y += ny * push;
+      clampToPitch(a.pos);
+      clampToPitch(b.pos);
+    }
+  }
+}
+
 // Picks white or near-black text so a team name stays readable when printed
 // directly on that team's own (sometimes light, e.g. yellow) shirt colour.
 function readableTextColor(hex) {
@@ -1558,7 +1598,7 @@ function buildTeam(def, attackDir, gkColor, teamIdx, skillKey, kit) {
   const useKit = kit || def;
   const team = {
     def, attackDir, score: 0,
-    shirt: useKit.shirt, shorts: useKit.shorts, gkColor,
+    shirt: useKit.shirt, shorts: useKit.shorts, stripe: useKit.stripe, gkColor,
     pressStyle: def.press || 'mid',
     players, bench, subsRemaining: MAX_SUBS,
   };
@@ -1650,6 +1690,18 @@ function aiAutoSub(team) {
 }
 
 const GROUP_LABEL = { GK: 'Goalkeeper', DEF: 'Defender', MID: 'Midfielder', FWD: 'Forward' };
+// Real footballers routinely play a neighbouring line, not just their one
+// listed position (a DEF at wing-back covering MID, a FWD dropping into
+// MID, etc.) - GK is the one truly specialist role with no crossover.
+// Out-of-position starts are allowed (see startReserveIntoSelectedSlot) at
+// a mild attribute penalty (see OUT_OF_POSITION_PENALTY below) rather than
+// forbidden outright, and DEF<->FWD isn't in this list - that's too big a
+// stretch to allow even at a penalty.
+const GROUP_ADJACENT = { GK: [], DEF: ['MID'], MID: ['DEF', 'FWD'], FWD: ['MID'] };
+const OUT_OF_POSITION_PENALTY = 0.85;
+function canPlayGroup(cp, slotGroup) {
+  return cp.group === slotGroup || (GROUP_ADJACENT[cp.group] || []).includes(slotGroup);
+}
 // Players don't have names in this game - a role + squad number (matching
 // the label already used on the substitutions screen) stands in for one.
 function playerLabel(p) { return p.realName || `${GROUP_LABEL[p.group] || p.group} ${p.idx + 1}`; }
@@ -1756,6 +1808,15 @@ function doKickoff(kickingIdx) {
   for (const team of G.teams) { computeHomePositions(team); placeAtHome(team); }
   const kicker = G.teams[kickingIdx].players.find(p => p.group === 'MID' && Math.abs(p.slot.y - 0.5) < 0.01) || outfield(G.teams[kickingIdx])[0];
   beginRestart(kicker, CENTER_POS, CENTER_CIRCLE_R + 0.3, 'kickoff');
+  // beginRestart's "face inward" correction is a no-op for a kickoff
+  // specifically (the taker is placed exactly ON its own inward-facing
+  // reference point, CENTER_POS, so the correction vector is always zero) -
+  // that leaves whatever stale facing the taker had from the previous phase
+  // of play, which releasePass then uses to pick a pass target. A stale
+  // facing pointing toward the touchline could pick a winger standing right
+  // on it, sending the kickoff straight out for a throw-in. Face the taker
+  // toward their own attacking direction instead, same as a real kickoff.
+  kicker.facing = { x: G.teams[kickingIdx].attackDir, y: 0 };
 }
 
 // ---------- Fouls, cards, free kicks & penalties ----------
@@ -2116,6 +2177,49 @@ function evolveWorldClub(clubIdx) {
   }
 }
 
+// The rest of the footballing world actually trades with itself too, not
+// just quietly refreshing one name at a time (see evolveWorldClub above,
+// which still runs alongside this for every club every season) - each
+// season a handful of real transfers happen between two OTHER clubs (never
+// involving you or your own squad - that's the human transfer market
+// instead, see signPlayer), always flowing from a weaker/equal club to a
+// stronger-or-same one, same "talent drifts upward" pattern as
+// careerReputation/BUY_REPUTATION_GAP enforces for your own signings. A
+// moved player keeps their rolled attributes if they'd already been viewed
+// (w.generated) - only their club/name-list membership changes.
+const WORLD_TRANSFERS_PER_SEASON = [15, 30];
+function simulateWorldTransfers() {
+  const groups = ['GK', 'DEF', 'MID', 'FWD'];
+  const moves = Math.floor(rand(WORLD_TRANSFERS_PER_SEASON[0], WORLD_TRANSFERS_PER_SEASON[1]));
+  for (let m = 0; m < moves; m++) {
+    const sellerIdx = Math.floor(Math.random() * ALL_CLUBS.length);
+    if (sellerIdx === CAREER.clubIdx) continue;
+    const sellerStrength = effectiveClub(sellerIdx).strength || 1;
+    const buyerCandidates = ALL_CLUBS
+      .map((c, i) => i)
+      .filter(i => i !== sellerIdx && i !== CAREER.clubIdx && (effectiveClub(i).strength || 1) >= sellerStrength - 0.05);
+    if (!buyerCandidates.length) continue;
+    const buyerIdx = buyerCandidates[Math.floor(Math.random() * buyerCandidates.length)];
+    const group = groups[Math.floor(Math.random() * groups.length)];
+    const sw = ensureWorldState(sellerIdx);
+    const list = sw.squad[group];
+    if (!list.length) continue;
+    const i = Math.floor(Math.random() * list.length);
+    const [name] = list.splice(i, 1);
+    const movedAttrs = sw.generated[name];
+    delete sw.generated[name];
+    const bw = ensureWorldState(buyerIdx);
+    bw.squad[group].push(name);
+    if (movedAttrs) bw.generated[name] = movedAttrs; // keep their rolled attributes, just re-homed
+    // Seller brings in a fresh young replacement, same idea as when the
+    // human buys someone away in signPlayer.
+    const prospect = generateRegenName();
+    list.push(prospect);
+    sw.youngNames = sw.youngNames || [];
+    sw.youngNames.push(prospect);
+  }
+}
+
 // Rescales every club's real TEAMS[i].strength onto a wide £50m-£300m
 // starting-budget range (computed off whatever the actual weakest/strongest
 // club in TEAMS currently is, rather than hardcoded numbers, so this keeps
@@ -2123,6 +2227,13 @@ function evolveWorldClub(clubIdx) {
 // gap instead of the much flatter spread a simple linear formula gave before.
 // Floor kept at £50m rather than lower so even the weakest club can actually
 // afford to sign someone.
+// A real Premier League club's kitty dwarfs a Championship one's even when
+// both are mid-table in their own division - applied on top of the
+// within-league relative shape below, not instead of it.
+const LEAGUE_BUDGET_MULT = {
+  'Premier League': 1.6, 'La Liga': 1.15, 'Bundesliga': 1.1, 'Serie A': 1.05, 'Ligue 1': 1.0,
+  'EFL Championship': 0.35,
+};
 function computeClubBudget(def) {
   // Scaled against def's OWN league's strength range, not always TEAMS -
   // otherwise a mid-table Championship/lower-league club's strength (which
@@ -2133,16 +2244,44 @@ function computeClubBudget(def) {
   const strengths = leagueClubs.map(c => c.strength || 1);
   const minS = Math.min(...strengths), maxS = Math.max(...strengths);
   const t = maxS > minS ? ((def.strength || 1) - minS) / (maxS - minS) : 0.5;
-  return Math.round(50 + t * 250);
+  return Math.round((50 + t * 250) * (LEAGUE_BUDGET_MULT[def.league] || 1));
 }
 
 // attrLevel is roughly the same 0.6-1.5 range makeSquadPlayer already rolls
 // (teamFactor-scaled for an established pro, a flat mid-range roll for a
 // freshly-generated youth prospect - see generateRegenBatch).
+// A 4th-power curve on `avg`, not a flat +£40m floor on top of a linear
+// scale - real transfer fees aren't linear in ability, the very best command
+// a huge premium while an average pro is worth a fraction of that, and a
+// fringe/bench-tier player is worth next to nothing. avg~0.6 (weak) lands
+// around a few million, ~1.0 (solid starter) around £50m, ~1.4 (world
+// class) into £150-200m+ territory - roughly the real spread.
 function computePlayerValue(cp) {
   const avg = (cp.pace + cp.tackling + cp.finishing + cp.reflexes) / 4;
   const ageFactor = cp.age < 21 ? 0.8 : cp.age <= 29 ? 1.2 : cp.age <= 33 ? 0.9 : 0.5;
-  return Math.max(1, Math.round(avg * 30 * ageFactor) + 40); // flat +£40m across the board, on top of the skill/age-based figure
+  // ^4 (an earlier version of this curve) was too aggressive: `avg` sits
+  // close to its 1.5 ceiling for most first-choice players at a decent club
+  // (teamFactor*renownFactor alone can exceed 1.5 before the per-attribute
+  // roll even applies), so nearly every regular starter got pushed toward
+  // the top of the curve - wildly overpriced stars (£200m+) and, by
+  // comparison, everyday squad players compressed down near-worthless.
+  // ^3 with a lower multiplier and a hard cap spreads that out into a more
+  // believable range: ~£3-8m for a fringe player, ~£25-40m for a solid
+  // regular, ~£90-120m only for a genuinely maxed-out player, nothing above
+  // £200m regardless.
+  return clamp(Math.round(Math.pow(avg, 3) * 30 * ageFactor), 2, 200);
+}
+
+// A season's wages as a fraction of transfer value - real wage-to-value
+// ratios sit roughly in this range (a club typically pays a meaningful slice
+// of a player's market value in salary every year they're under contract).
+// Older players skew a bit higher (paid more for experience relative to
+// resale value); young prospects skew lower (paid for potential, not yet
+// proven enough to command a big wage).
+const WAGE_RATE = 0.12;
+function computePlayerWage(cp) {
+  const ageMult = cp.age >= 30 ? 1.15 : cp.age < 23 ? 0.75 : 1;
+  return Math.max(0.2, Math.round(cp.value * WAGE_RATE * ageMult * 10) / 10);
 }
 
 // Two things a player generated in the past can go stale on, both fixed
@@ -2168,6 +2307,8 @@ function reapplyRealAges(data) {
       cp.potential = realAge < 24 ? clamp(avg + rand(0.05, 0.3), avg, 1.5) : avg;
     }
     cp.value = computePlayerValue(cp); // always refreshed, not just on an age correction - see comment above
+    cp.wage = computePlayerWage(cp);
+    if (cp.contractYears == null) cp.contractYears = Math.floor(rand(cp.age < 24 ? 3 : 1, cp.age < 24 ? 6 : 4)); // self-heal an older save from before contracts existed
   };
   (data.squad || []).forEach(fix);
   (data.freeAgents || []).forEach(fix);
@@ -2198,14 +2339,19 @@ const REAL_PLAYER_AGE = {
   // Arsenal
   'David Raya': 30, 'William Saliba': 24, 'Gabriel Magalhães': 28, 'Declan Rice': 27, 'Martin Ødegaard': 27,
   'Bukayo Saka': 24, 'Gabriel Martinelli': 24, 'Kai Havertz': 26,
+  'Kepa Arrizabalaga': 31, 'Tommy Setford': 20, 'Jurriën Timber': 25, 'Ben White': 28, 'Riccardo Calafiori': 24, 'Myles Lewis-Skelly': 19, 'Cristhian Mosquera': 22, 'Piero Hincapié': 24, 'Martín Zubimendi': 27, 'Mikel Merino': 30, 'Fabio Vieira': 26, 'Ethan Nwaneri': 19, 'Gabriel Jesus': 29, 'Reiss Nelson': 26,
   // Aston Villa
   'Emiliano Martínez': 33, 'Ezri Konsa': 28, 'John McGinn': 30, 'Ollie Watkins': 29,
+  'Robin Olsen': 36, 'Marco Bizot': 35, 'Pau Torres': 29, 'Lucas Digne': 33, 'Matty Cash': 29, 'Tyrone Mings': 33, 'Ian Maatsen': 24, 'Victor Lindelöf': 32, 'Kosta Nedeljković': 20, 'Youri Tielemans': 29, 'Boubacar Kamara': 26, 'Amadou Onana': 24, 'Morgan Rogers': 24, 'Ross Barkley': 32, 'Donyell Malen': 27, 'Leon Bailey': 29, 'Emiliano Buendía': 29, 'Evann Guessand': 25, 'Kaine Kesler-Hayden': 23,
   // Bournemouth
   'Illia Zabarnyi': 23, 'Antoine Semenyo': 25, 'Evanilson': 26,
+  'Norberto Neto': 37, 'Mark Travers': 27, 'Will Dennis': 26, 'Marcos Senesi': 29, 'Adam Smith': 35, 'Bafodé Diakité': 25, 'Julián Araujo': 24, 'Álex Jiménez': 21, 'Ryan Fredericks': 33, 'James Hill': 24, 'Ryan Christie': 31, 'Alex Scott': 22, 'Tyler Adams': 27, 'David Brooks': 28, 'Ben Pearson': 31, 'Philip Billing': 30, 'Dango Ouattara': 24, 'Enes Ünal': 29, 'Justin Kluivert': 27, 'Eli Junior Kroupi': 20,
   // Brentford
   'Mark Flekken': 32, 'Nathan Collins': 24, 'Kevin Schade': 23, 'Yoane Wissa': 28,
+  'Thomas Strakosha': 31, 'Hákon Rafn Valdimarsson': 24, 'Ethan Pinnock': 33, 'Rico Henry': 29, 'Sepp van den Berg': 24, 'Aaron Hickey': 24, 'Kristoffer Ajer': 28, 'Ben Mee': 36, 'Michael Kayode': 22, 'Christian Nørgaard': 32, 'Mathias Jensen': 30, 'Vitaly Janelt': 28, 'Mikkel Damsgaard': 26, 'Yehor Yarmoliuk': 22, 'Igor Thiago': 25, 'Fábio Carvalho': 23, 'Keane Lewis-Potter': 25, 'Gustavo Nunes': 20,
   // Brighton
   'Bart Verbruggen': 23, 'Lewis Dunk': 34, 'Kaoru Mitoma': 28, 'Danny Welbeck': 35,
+  'Jason Steele': 35, 'Jan Paul van Hecke': 26, 'Pervis Estupiñán': 28, 'Tariq Lamptey': 25, 'Adam Webster': 31, 'Igor Julio': 28, 'Diego Coppola': 22, 'Ferdi Kadıoğlu': 26, 'Carlos Baleba': 22, 'James Milner': 40, 'Jack Hinshelwood': 21, "Matt O'Riley": 25, 'Georginio Rutter': 24, 'Yasin Ayari': 22, 'Yankuba Minteh': 22, 'Simon Adingra': 24, 'Evan Ferguson': 21, 'Stefanos Tzimas': 20,
   // Burnley
   'James Trafford': 23, 'Josh Cullen': 29, 'Josh Brownhill': 30,
   // Chelsea
@@ -2258,62 +2404,95 @@ const REAL_PLAYER_AGE = {
   'Marquinhos': 31, 'Achraf Hakimi': 26, 'Vitinha': 25, 'Fabián Ruiz': 29, 'Ousmane Dembélé': 28, 'Bradley Barcola': 22,
   // Juventus
   'Dušan Vlahović': 25, 'Manuel Locatelli': 27,
+  'Michele Di Gregorio': 29, 'Mattia Perin': 33, 'Carlo Pinsoglio': 36, 'Gleison Bremer': 29, 'Federico Gatti': 28,
+  'Pierre Kalulu': 26, 'Andrea Cambiaso': 26, 'Juan Cabal': 25, 'Lloyd Kelly': 27, 'Khéphren Thuram': 25,
+  'Teun Koopmeiners': 28, 'Weston McKennie': 27, 'Fabio Miretti': 23, 'Kenan Yıldız': 21, 'Francisco Conceição': 23, 'Randal Kolo Muani': 27,
   // Inter Milan
   'Yann Sommer': 36, 'Alessandro Bastoni': 26, 'Nicolò Barella': 28, 'Lautaro Martínez': 27, 'Marcus Thuram': 27,
   // AC Milan
   'Mike Maignan': 30, 'Theo Hernández': 27, 'Rafael Leão': 26,
   // Napoli
   'Alex Meret': 28, 'Giovanni Di Lorenzo': 32, 'Romelu Lukaku': 32, 'Scott McTominay': 29,
+  'Billy Gilmour': 25, 'Alessandro Buongiorno': 27, 'Noa Lang': 27, 'Mathías Olivera': 28, 'David Neres': 29,
+  'Frank Anguissa': 30, 'Stanislav Lobotka': 31, 'Amir Rrahmani': 32, 'Leonardo Spinazzola': 33, 'Matteo Politano': 33,
+  // AS Roma
+  'Mile Svilar': 26, 'Pierluigi Gollini': 31, 'Gianluca Mancini': 30, 'Evan Ndicka': 26, 'Mario Hermoso': 31, 'Wesley': 22,
+  'Devyne Rensch': 23, 'Bryan Cristante': 31, 'Manu Koné': 25, 'Lorenzo Pellegrini': 30, 'Niccolò Pisilli': 21,
+  'Paulo Dybala': 32, 'Matías Soulé': 23, 'Tommaso Baldanzi': 23, 'Zeki Çelik': 29,
   // --- EFL Championship ---
   // Leicester City
   'Danny Ward': 32, 'Wout Faes': 27, 'Jannik Vestergaard': 33, 'Ricardo Pereira': 32, 'James Justin': 27,
   'Victor Kristiansen': 23, 'Wilfred Ndidi': 29, 'Oliver Skipp': 25, 'Patson Daka': 27, 'Stephy Mavididi': 27, 'Abdul Fatawu': 21,
+  'Jakub Stolarczyk': 25, 'Caleb Okoli': 25, 'Ben Nelson': 22, 'Hamza Choudhury': 28, 'Daniel Iversen': 29, 'Bilal El Khannouss': 22, 'Tawanda Chirewa': 23, 'Jordan Ayew': 34,
   // Southampton
   'Alex McCarthy': 36, 'Jan Bednarek': 30, 'Jack Stephens': 31, 'Adam Armstrong': 29, 'Ryan Fraser': 32, 'Flynn Downes': 26,
+  'Ryan Manning': 30, 'Yukinari Sugawara': 26, 'Taylor Harwood-Bellis': 24, 'Cameron Archer': 24, 'Joe Lumley': 31, 'Callum Slattery': 27, 'Will Smallbone': 26, 'Harry Lewis': 28, 'Kamaldeen Sulemana': 23, 'Tyler Dibling': 20, 'Shea Charles': 22, 'Callum Chambers': 30,
   // Ipswich Town
   'Vaclav Hladky': 33, 'Sam Morsy': 34, 'Omari Hutchinson': 22, 'Leif Davis': 26, 'Kalvin Phillips': 30,
+  'Christian Walton': 30, "Dara O'Shea": 27, 'Ben Johnson': 26, 'Harry Clarke': 25, 'Jack Taylor': 28, 'George Hirst': 27, 'Cameron Burgess': 30, 'George Edmundson': 28, 'Nathan Broadhead': 28, 'Cieran Slicker': 23, 'Corrie Ndaba': 26, 'Jens Cajuste': 28, 'Massimo Luongo': 33,
   // West Bromwich Albion
   'Alex Palmer': 29, 'Semi Ajayi': 32, 'Kyle Bartley': 34, 'John Swift': 30, 'Josh Maja': 27, 'Jed Wallace': 32,
+  'Conor Townsend': 33, 'Jayson Molumby': 27, 'Alex Mowatt': 31, 'Mikey Johnston': 27, 'Josh Griffiths': 24, 'Cedric Kipre': 29, 'Tom Fellows': 23, 'Zac Ashworth': 23, 'Wes Foderingham': 35, 'Erik Pieters': 38, 'Torbjørn Heggem': 27, 'Daryl Dike': 27, 'Grady Diangana': 28, 'Devante Cole': 32,
   // Norwich City
   'Angus Gunn': 30, 'Grant Hanley': 34, 'Shane Duffy': 34, 'Borja Sainz': 25, 'Adam Idah': 25, 'Marcelino Núñez': 26,
+  'Ben Chrisene': 22, 'Kenny McLean': 34, 'Kellen Fisher': 22, 'George Long': 32, 'Callum Doyle': 22, 'Archie Mair': 25, 'Bali Mumba': 24, 'Dimitris Giannoulis': 28, 'Gabriel Sara': 27, 'Christian Fassnacht': 31, 'Josh Sargent': 26, 'Jonathan Rowe': 22,
   // Middlesbrough
   'Dael Fry': 28, 'Emmanuel Latte Lath': 26, 'Hayden Hackney': 24,
+  'Seny Dieng': 31, 'Sol Brynn': 25, 'Neto Borges': 29, 'Alex Bangura': 27, 'Aidan Morris': 24, 'Matt Clarke': 29, 'Sam Greenwood': 24, 'Finn Azaz': 25, 'Delano Burgzorg': 27, 'Tom Glover': 26, 'Rav van den Berg': 22, 'Anfernee Dijksteel': 29, 'Jonny Howson': 38, 'Dan Barlaser': 28, 'Ben Doak': 20,
   // Sheffield Wednesday
   'Barry Bannan': 36, 'James Beadle': 21, 'Michael Smith': 34, 'Josh Windass': 32,
+  "Di'Shon Bernard": 25, 'Max Lowe': 29, 'Yan Valery': 27, 'Liam Palmer': 34, 'Charlie McNeill': 22, 'Pierce Charles': 21, 'Bailey Cadamarteri': 21, 'Chey Dunkley': 32, 'Jack Hunt': 35, 'Bambo Diaby': 27, 'Yosuke Ideguchi': 30, 'Djeidi Gassama': 22, 'Anthony Musaba': 25,
   // Watford
   'Jonathan Bond': 34, 'Daniel Bachmann': 31, 'Ken Sema': 32, 'Giorgi Chakvetadze': 25, 'Vakoun Bayo': 29,
+  'Mattie Pollock': 24, 'Edo Kayembe': 28, 'Rocco Vata': 21, 'Antonio Tikvić': 22, 'Yaser Asprilla': 23, 'Tom Dele-Bashiru': 26, 'Rhys Healey': 30, 'Mileta Rajović': 27, 'Matheus Martins': 23, 'Wesley Hoedt': 32, 'Jamal Lewis': 28, 'Francisco Sierralta': 29, 'Ryan Porteous': 26,
   // Sheffield United
   'Anel Ahmedhodžić': 26, 'Gustavo Hamer': 28, 'Kieffer Moore': 33, 'Rhian Brewster': 26,
+  'Michael Cooper': 26, 'Adam Davies': 34, 'Rhys Norrington-Davies': 27, 'Femi Seriki': 24, 'Sydie Peck': 21, 'Louie Marsh': 22, 'Jack Robinson': 32, 'Andre Brooks': 22, 'Ben Brereton Díaz': 27, 'Chris Basham': 37, 'Jayden Bogle': 26, 'Vinícius Souza': 26, 'Tom Davies': 28,
   // Coventry City
   'Ben Sheaf': 27, 'Ellis Simms': 24, 'Haji Wright': 27, 'Jake Bidwell': 33,
+  'Oliver Dovin': 24, 'Ben Wilson': 34, 'Bobby Thomas': 25, 'Joel Latibeaudiere': 26, 'Josh Eccles': 26, 'Jack Rudoni': 25, 'Tatsuhiro Sakamoto': 29, 'Jojo Wollacott': 31, 'Brooke Norton-Cuffy': 23, 'Josh Wilson-Esbrand': 23, 'Luis Binks': 23, 'Norman Bassette': 20, 'Jayden Wareham': 23,
   // Bristol City
   'Zak Vyner': 28, 'Nahki Wells': 35, 'Ross Stewart': 29, 'Tommy Conway': 23,
+  'Rob Atkinson': 28, 'Cam Pring': 28, 'George Tanner': 26, 'Jason Knight': 25, 'Yu Hirakawa': 25, 'Anis Mehmeti': 25, 'Radek Vitek': 22, 'Ross McCrorie': 28, "Max O'Leary": 28, 'Kal Naismith': 33, 'Sinclair Armstrong': 22, 'Harry Cornick': 29, 'Ross McCormack': 39, 'Stefan Marinović': 34,
   // Preston North End
   'Freddie Woodman': 29, 'Emil Riis': 27, 'Will Keane': 33, 'Robbie Brady': 34,
+  'Liam Lindsay': 30, 'Andrew Hughes': 34, 'Ali McCann': 26, 'Milutin Osmajić': 27, 'Ben Whiteman': 30, 'Liam Millar': 26, 'Ryan Ledson': 28, 'Duane Holmes': 32, 'Josh Onomah': 29, 'Jack Whatmough': 29, 'Mads Frøkjær': 27,
   // Swansea City
   'Ben Cabango': 26, 'Josh Key': 22, 'Liam Cullen': 24,
+  'Lawrence Vigouroux': 32, 'Josh Tymon': 27, 'Goncalo Franco': 25, 'Ben Lloyd': 21, 'Ronald': 25, 'Zan Vipotnik': 24, 'Harry Darling': 27, 'Nathan Wood': 24, 'Nathan Young-Coombes': 23, 'Jamie Paterson': 34, 'Josh Ginnelly': 28, 'Ollie Cooper': 25, 'Matty Sorinola': 24,
   // Hull City
   'Jacob Greaves': 24, 'Ozan Tufan': 31,
+  'Charlie Hughes': 22, 'Ryan Giles': 26, 'Regan Slater': 26, 'Cody Drameh': 24, 'Ryan Allsop': 34, 'Alfie Jones': 28, 'Jaden Philogene': 24, 'Ryan Longman': 25, 'Abu Kamara': 23, 'Reece Burke': 29, 'Joe Gelhardt': 24, 'Liam Delap': 23, 'Muskwe Karim': 27, 'Ivor Pandur': 24,
   // Millwall
   'George Saville': 32, 'Zian Flemming': 27, 'Duncan Watmore': 31,
+  'Lukas Jensen': 27, 'Ryan Leonard': 34, 'Casper De Norre': 29, 'Josh Coburn': 23, 'Japhet Tanganga': 27, 'Jamie Shackleton': 26, 'Billy Mitchell': 25, 'Aidomo Emakhu': 22, 'Liam Roberts': 31, 'Kevin Nisbet': 29, 'Wes Harding': 29,
   // Blackburn Rovers
   'Sondre Tronstad': 30, 'Todd Cantwell': 27, 'Andreas Weimann': 34, 'Sammie Szmodics': 30,
+  'Aynsley Pears': 28, 'Yuki Ohashi': 30, 'Dominic Hyam': 30, 'Callum Brittain': 28, 'Joe Rankin-Costello': 27, 'Ryan Hedges': 30, 'Arnor Sigurdsson': 29, 'Tom Trybull': 33,
   // Stoke City
   'Viktor Johansson': 26, 'Ben Wilmot': 25, 'Lewis Baker': 30,
+  'Junior Tchamadeu': 22, 'Eric Bocat': 27, 'Bae Jun-ho': 22, 'Million Manhoef': 24, 'Andrew Moran': 22, 'Tom Cannon': 23, 'Jack Bonham': 32, 'Nathan Lowe': 20, 'Michael Rose': 30, 'Enda Stevens': 36, 'Connor Taylor': 24, 'Wouter Burger': 26, 'Ryan Mmaee': 28,
   // Portsmouth
   'Colby Bishop': 28, 'Marlon Pack': 34,
+  'Connor Ogilvie': 30, 'Zak Swanson': 25, 'Regan Poole': 28, 'Conor Shaughnessy': 30, 'Terry Devlin': 22, 'Josh Murphy': 31, 'Alfie Devine': 22, 'Callum Lang': 27, 'Jay Mingi': 25, 'Nicholas Bilokapić': 23, 'Sean Raggett': 32, 'Kusini Yengi': 26, 'Andre Dozzell': 26, 'Will Norris': 32,
   // Oxford United
   'Cameron Brannagan': 28, 'Elliott Moore': 28,
+  'Jamie Cumming': 26, 'Ciaron Brown': 28, 'James Golding': 22, 'Tyler Goodrham': 23, 'Mark Harris': 27, 'Kyle Joseph': 24, 'Dane Scarlett': 22, 'Sam Winnall': 34, 'Ryan Williams': 33, 'Idris El Mizouni': 25, 'Alex Gorrin': 32, 'Marcus McGuane': 26,
   // Derby County
   'Curtis Nelson': 33, 'Kane Wilson': 25, 'Martyn Waghorn': 36, 'Jerry Yates': 28,
+  'Josh Vickers': 30, 'Jacob Widell Zetterström': 28, 'Max Bird': 25, 'Ebou Adams': 30, 'Nathaniel Mendez-Laing': 33, 'Kayden Jackson': 32, 'Tyrese Fornah': 25, 'Eiran Cashin': 23, 'Callum Elder': 30, 'Sonny Bradley': 32,
   // Queens Park Rangers
   'Ilias Chair': 28, 'Jack Colback': 35, 'Charlie Austin': 37, 'Asmir Begović': 38, 'Sam Field': 27,
+  'Jimmy Dunne': 28, 'Jake Clarke-Salter': 28, 'Kwame Poku': 25, 'Jake Cooper': 31, 'Murphy Mahoney': 24, 'Joe Walsh': 24, 'Chris Willock': 27, 'Michael Frey': 31, 'Morgan Fox': 32, 'Sean Goss': 30, 'Lucas Andersen': 29, 'Rayhaan Tulloch': 24,
   // Charlton Athletic
   'Alfie May': 32, 'Greg Docherty': 29, 'Miles Leaburn': 21, 'Tom Lockyer': 31,
+  'Lloyd Jones': 30, 'Josh Edwards': 26, 'Tyreece Campbell': 22, 'Daniel Kanu': 21, 'Ashley Maynard-Brewer': 27, 'Alfie Doughty': 26, 'Corey Blackett-Taylor': 28, 'Jesurun Rak-Sakyi': 24, 'Naby Sarr': 30, 'Tom Edwards': 26,
   // Wrexham
   'Paul Mullin': 30, 'James McClean': 36, 'Sam Vokes': 36, 'Steven Fletcher': 39,
+  'Arthur Okonkwo': 24, 'Max Cleworth': 24, 'Elliot Lee': 31, 'George Dobson': 28, "Eoghan O'Connell": 30, 'Ben Tozer': 34, 'Ollie Palmer': 34, 'Sam Dalby': 25, 'Andy Cannon': 29, 'Aaron Hayden': 28, 'Jordan Tunnicliffe': 30,
   // Birmingham City
   'John Ruddy': 39, 'Krystian Bielik': 27, 'Jay Stansfield': 23, 'Tommy Doyle': 24,
+  'Marc Leonard': 24, 'Alex Cochrane': 26, 'Emil Hansson': 28, 'Jordan James': 21, 'Kristian Pedersen': 33,
   // --- La Liga ---
   // Athletic Bilbao
   'Unai Simón': 28, 'Yeray Álvarez': 32, 'Dani Vivian': 26, 'Nico Williams': 23, 'Iñaki Williams': 31,
@@ -2345,24 +2524,79 @@ const REAL_PLAYER_AGE = {
   // --- Ligue 1 ---
   // Paris Saint-Germain
   'Nuno Mendes': 23, 'João Neves': 20,
+  'Gianluigi Donnarumma': 27, 'Matvey Safonov': 27, 'Arnau Tenas': 25,
+  'Achraf Hakimi': 27, 'Marquinhos': 32, 'Willian Pacho': 24, 'Lucas Beraldo': 22, 'Lucas Hernandez': 30,
+  'Vitinha': 26, 'Fabián Ruiz': 30, 'Warren Zaïre-Emery': 20, 'Senny Mayulu': 20,
+  'Ousmane Dembélé': 29, 'Bradley Barcola': 23, 'Khvicha Kvaratskhelia': 25, 'Gonçalo Ramos': 25, 'Ibrahim Mbaye': 18,
   // Marseille
   'Mason Greenwood': 24,
+  'Gerónimo Rulli': 34, 'Jeffrey de Lange': 28,
+  'Leonardo Balerdi': 27, 'Derek Cornelius': 28, 'Ulisses Garcia': 30, 'Amir Murillo': 30, 'Nayef Aguerd': 30,
+  'Geoffrey Kondogbia': 33, 'Angel Gomes': 25, 'Bilal Nadir': 22,
+  'Amine Gouiri': 26, 'Neal Maupay': 29, 'Robinio Vaz': 19,
   // Monaco
   'Denis Zakaria': 28, 'Aleksandr Golovin': 29, 'Folarin Balogun': 24, 'Takumi Minamino': 30,
+  'Radosław Majecki': 26, 'Philipp Köhn': 28,
+  'Wilfried Singo': 25, 'Thilo Kehrer': 29, 'Christian Mawissa': 21, 'Caio Henrique': 28, 'Jordan Teze': 26,
+  'Lamine Camara': 22, 'Eliesse Ben Seghir': 21,
+  'George Ilenikhena': 19, 'Mika Biereth': 23,
   // Lyon
   'Corentin Tolisso': 31, 'Alexandre Lacazette': 34, 'Nemanja Matić': 37,
+  'Rémy Descamps': 30,
+  'Moussa Niakhaté': 30, 'Nicolás Tagliafico': 33, 'Saël Kumbedi': 21, 'Clinton Mata': 33,
+  'Tanner Tessmann': 24, 'Pavel Šulc': 25,
+  'Malick Fofana': 21, 'Afonso Moreira': 21, 'Ernest Nuamah': 22,
   // Lille
   'Jonathan David': 25, 'Benjamin André': 34,
+  'Berke Özer': 26,
+  'Alexsandro': 26, 'Aïssa Mandi': 34,
+  'Rémy Cabella': 36, 'Nabil Bentaleb': 31, 'Ayyoub Bouaddi': 18,
+  'Edon Zhegrova': 27, 'Hákon Haraldsson': 23,
   // Nice
   'Dante': 42, 'Jean-Clair Todibo': 26, 'Terem Moffi': 26,
+  'Yehvann Diouf': 26, 'Teddy Boulhendi': 25,
+  'Melvin Bard': 25, 'Antoine Mendy': 22, 'Jonathan Clauss': 33,
+  'Sofiane Diop': 26, 'Morgan Sanson': 31, 'Hicham Boudaoui': 26, 'Tanguy Ndombele': 29,
+  'Badredine Bouanani': 21,
   // Lens
   'Brice Samba': 31, 'Kevin Danso': 27,
+  'Yannis Clementia': 26, 'Bingourou Kamara': 22,
+  'Facundo Medina': 27, 'Jonathan Gradit': 33, 'Deiver Machado': 32, 'Malang Sarr': 27,
+  'Andy Diouf': 23, 'Angelo Fulgini': 30, 'Adrien Thomasson': 32, 'Przemysław Frankowski': 31,
+  'Wesley Saïd': 31, 'Florian Sotoca': 35, 'Elye Wahi': 23, 'Neil El Aynaoui': 23,
   // Rennes
   'Steve Mandanda': 41,
+  'Gauthier Gallon': 33, 'Sacha-Kelvin Gbem': 19,
+  'Lorenz Assignon': 25, 'Christopher Wooh': 24, 'Adrien Truffert': 24, 'Warmed Omari': 24, 'Jeanuël Belocian': 20,
+  'Djaoui Cissé': 22, 'Baptiste Santamaria': 30, 'Seko Fofana': 31, 'Alidu Seidu': 26,
+  'Ludovic Blas': 28, 'Arnaud Kalimuendo': 24, 'Jonas Martin': 36, 'Fabian Rieder': 24,
   // Strasbourg
   'Habib Diarra': 21, 'Andrey Santos': 21,
+  'Alaa Bellaarouch': 22, 'Sacha Delaye': 24, 'Christoph Blaswich': 35,
+  'Guela Doué': 23, 'Abakar Sylla': 23, 'Saïdou Sow': 22, 'Thomas Delaine': 33, 'Marvin Senaya': 25,
+  'Dilane Bakwa': 23, 'Caleb Wiley': 21,
+  'Emanuel Emegha': 23, 'Félix Lemaréchal': 22, 'Sebastián Nanasi': 24, 'Joaquín Panichelli': 23,
+  // Toulouse
+  'Guillaume Restes': 21,
+  'Rasmus Nicolaisen': 29, 'Anthony Rouault': 25,
+  'Aron Dønnum': 28, 'Cristian Cásseres': 26,
+  'Yann Gboho': 25, 'Frank Magri': 26,
   // Nantes
   'Alban Lafont': 27, 'Moses Simon': 30,
+  'Anthony Lopes': 35,
+  'Fabien Centonze': 30,
+  'Mostafa Mohamed': 28, 'Matthis Abline': 23,
+  // Brest
+  'Grégoire Coudert': 27,
+  'Bradley Locko': 24, 'Lilian Brassier': 26, 'Kenny Lala': 34,
+  'Pierre Lees-Melou': 33, 'Mahdi Camara': 28, 'Romain Del Castillo': 30, 'Hugo Magnetti': 28,
+  'Ludovic Ajorque': 32, 'Abdallah Sima': 25, 'Jean-Kevin Duverne': 28,
+  // Le Havre
+  'Josué Casimir': 24,
+  // Auxerre
+  'Donovan Léon': 33,
+  'Sinaly Diomandé': 25, 'Elisha Owusu': 28,
+  'Lassine Sinayoko': 26,
   // --- Bundesliga ---
   // Bayern Munich
   'Manuel Neuer': 39, 'Dayot Upamecano': 26, 'Alphonso Davies': 25, 'Joshua Kimmich': 30, 'Jamal Musiala': 22,
@@ -2443,6 +2677,12 @@ function makeCareerPlayer(name, group, teamFactor, age) {
   const avg = (cp.pace + cp.tackling + cp.finishing + cp.reflexes) / 4;
   cp.potential = age < 24 ? clamp(avg + rand(0.05, 0.3), avg, 1.5) : avg;
   cp.value = computePlayerValue(cp);
+  cp.wage = computePlayerWage(cp);
+  // Whatever's left on their current deal - a freshly-generated club player
+  // (never actually negotiated with) just gets a plausible remaining length,
+  // same idea as everything else about them being rolled rather than real
+  // history. Longer for younger players (clubs tie up prospects for longer).
+  cp.contractYears = Math.floor(rand(age < 24 ? 3 : 1, age < 24 ? 6 : 4));
   return cp;
 }
 
@@ -2475,6 +2715,7 @@ function generateRegenBatch() {
     const cp = makeCareerPlayer(generateRegenName(), group, 1.0, Math.round(rand(17, 19)));
     cp.potential = clamp(cp.potential + rand(0.1, 0.25), 0, 1.5); // a bit more room to grow than a same-age established pro
     cp.value = computePlayerValue(cp);
+    cp.wage = computePlayerWage(cp);
     batch.push(cp);
   }
   return batch;
@@ -2724,27 +2965,43 @@ function europeStrengthBand(tier) {
   return tier === 'top' ? pool.slice(0, cut) : pool.slice(Math.max(0, pool.length - cut));
 }
 
-// The rest of your division's final table positions are estimated rather
-// than actually simulated fixture-by-fixture (that would mean playing out
-// or resolving every other club's entire double round-robin every season, a
-// much bigger system) - each gets a plausible points/goal-difference tally
-// scaled off their real ALL_CLUBS[i].strength relative to their league's own
-// average, generated fresh once per season so it holds steady while you're
-// looking at it but isn't the same every season either. 51pts/38 games is
-// approximately an average real Premier League points tally (used as the
-// baseline for every league here, real per-division averages vary a bit but
-// not enough to matter for an estimate) - clubs above/below league-average
-// strength get scaled up/down from there.
+// The rest of your division's table, starting at 0 for a fresh season -
+// filled in live, round by round, as your own league fixtures resolve (see
+// advanceLeagueRound), rather than guessed once upfront. Every other club's
+// row only ever has an actual result applied to it (either the mirror of
+// your own real/simmed result, for whoever you played that round, or a
+// quick simulateFixture result for everyone else that round) - so the table
+// stays an honest running record instead of a single re-rolled guess.
 function generateLeagueTableEstimate(clubIdx) {
   const leagueClubs = ALL_CLUBS.map((c, i) => i).filter(i => ALL_CLUBS[i].league === CAREER.clubLeague);
-  const strengths = leagueClubs.map(i => effectiveClub(i).strength || 1);
-  const avgS = strengths.reduce((a, b) => a + b, 0) / strengths.length;
-  return leagueClubs.filter(i => i !== clubIdx).map(i => {
-    const def = effectiveClub(i);
-    const points = clamp(Math.round(51 + ((def.strength || 1) - avgS) * 220 + rand(-6, 6)), 10, 100);
-    const gd = Math.round((points - 51) * 0.6 + rand(-5, 5));
-    return { clubIdx: i, points, gd };
-  });
+  return leagueClubs.filter(i => i !== clubIdx).map(i => ({ clubIdx: i, points: 0, gd: 0 }));
+}
+
+// Called once per league fixture you resolve (played live or simmed - both
+// funnel through applyCareerFixtureResult) to advance the WHOLE division by
+// one round: your opponent this round gets the mirror of your own actual
+// result applied directly (not a separately-simulated number for the same
+// match), and every other club still in the table plays a quick simulated
+// match against another of their number this round, so the table keeps
+// moving in step with your own season instead of sitting frozen.
+function advanceLeagueRound(oppIdx, yourGf, yourGa) {
+  const oppRow = CAREER.tableEstimate.find(r => r.clubIdx === oppIdx);
+  if (oppRow) {
+    if (yourGf > yourGa) { /* you won this fixture - your opponent gets nothing */ }
+    else if (yourGf === yourGa) oppRow.points += 1;
+    else oppRow.points += 3;
+    oppRow.gd += yourGa - yourGf;
+  }
+  const others = shuffled(CAREER.tableEstimate.filter(r => r.clubIdx !== oppIdx));
+  for (let i = 0; i + 1 < others.length; i += 2) {
+    const a = others[i], b = others[i + 1];
+    const sim = simulateFixture(effectiveClub(a.clubIdx).strength || 1, effectiveClub(b.clubIdx).strength || 1);
+    if (sim.home > sim.away) a.points += 3;
+    else if (sim.home === sim.away) { a.points += 1; b.points += 1; }
+    else b.points += 3;
+    a.gd += sim.home - sim.away;
+    b.gd += sim.away - sim.home;
+  }
 }
 
 // halfLenMin/skillKey are picked once at creation and reused for every
@@ -2827,7 +3084,13 @@ function applyCareerSquad(team, ctx) {
     if (cp) {
       p.realName = cp.name;
       p.careerId = cp.id; // lets a goal scored this match be credited back to the persistent player - see recordCareerResult
-      p.pace = cp.pace; p.tackling = cp.tackling; p.finishing = cp.finishing; p.reflexes = cp.reflexes;
+      // Playing their real position gets full attributes; a neighbouring
+      // line (see GROUP_ADJACENT/canPlayGroup, checked back when they were
+      // put in this slot) gets a mild across-the-board penalty instead of
+      // outright refusing the selection.
+      const outOfPos = cp.group !== slot.group ? OUT_OF_POSITION_PENALTY : 1;
+      p.pace = cp.pace * outOfPos; p.tackling = cp.tackling * outOfPos;
+      p.finishing = cp.finishing * outOfPos; p.reflexes = cp.reflexes * outOfPos;
     }
   });
   // Bench - not formation-locked (real benches aren't either), just the rest
@@ -2902,6 +3165,7 @@ function applyCareerFixtureResult(fixture, gf, ga) {
     else { r.lost++; }
     CAREER.results.push({ oppIdx: fixture.oppIdx, gf, ga });
     pushCareerMatchLog(fixture, gf, ga);
+    advanceLeagueRound(fixture.oppIdx, gf, ga);
     return;
   }
   if (fixture.type.endsWith('-group')) {
@@ -3074,10 +3338,9 @@ function careerSimNextFixture() {
   const result = simulateFixture(careerSquadStrength(), effectiveClub(oppIdx).strength || 1);
   applyCareerFixtureResult(fixture, result.home, result.away);
   CAREER.fixtureIdx++;
-  const resultColor = result.home > result.away ? '#4ade80' : result.home === result.away ? '#9ca3af' : '#e63946';
-  const compLabel = fixtureCompetitionLabel(fixture);
-  const label = compLabel ? `${compLabel}: ` : '';
-  showToast(`${label}${ALL_CLUBS[CAREER.clubIdx].name} ${result.home}-${result.away} ${ALL_CLUBS[oppIdx].name}`, resultColor);
+  // Result itself shows via the always-visible career-last-result box (see
+  // renderCareerDashboard), not a toast - a queued 1.6s-per-toast notification
+  // can't keep up with mashing Sim through a stack of fixtures.
   if (CAREER.fixtureIdx >= CAREER.fixtures.length) endCareerSeason();
   saveCareerSlot(CAREER.slot, CAREER);
 }
@@ -3085,6 +3348,14 @@ function careerSimNextFixture() {
 // Aging/progression/generation cycle - fires once the fixture list runs out,
 // whether the last fixture was played live or simmed.
 function endCareerSeason() {
+  // Wages come out of the budget as a lump sum for the season just played
+  // (not tracked matchday-by-matchday - there's no in-season cashflow model
+  // here, just an annual settling-up) - summed BEFORE the retire/expire
+  // filter below drops anyone, so a player who leaves this same off-season
+  // still cost their wage for the season they were actually on the books.
+  const wageBill = Math.round(CAREER.squad.reduce((sum, cp) => sum + (cp.wage || 0), 0));
+  CAREER.budget -= wageBill;
+  const expired = [];
   CAREER.squad = CAREER.squad.filter(cp => {
     cp.age++;
     if (cp.age >= 36) return false; // retires - drops out of the squad entirely
@@ -3097,15 +3368,28 @@ function endCareerSeason() {
       cp[attr] = clamp(cp[attr] + delta + rand(-0.02, 0.02), 0.4, 1.5);
     });
     cp.value = computePlayerValue(cp);
+    cp.wage = computePlayerWage(cp);
+    // Contract countdown - reaching 0 means it's actually run out (not just
+    // "about to"), so they leave as a free transfer at that point rather
+    // than one season earlier. Renewing (see renewCareerPlayerContract,
+    // offered in the squad screen once low) resets this before it can hit 0.
+    cp.contractYears = (cp.contractYears == null ? 3 : cp.contractYears) - 1;
+    if (cp.contractYears <= 0) { expired.push(cp.name); return false; }
     return true;
   });
+  if (expired.length) {
+    showToast(`📋 Contract${expired.length > 1 ? 's' : ''} expired: ${expired.join(', ')}`, '#eab308');
+  }
   if (CAREER.seasonNumber >= CAREER.nextGenerationSeason) {
     CAREER.freeAgents.push(...generateRegenBatch());
     CAREER.nextGenerationSeason = CAREER.seasonNumber + 1 + Math.floor(rand(3, 5));
   }
   // The rest of the football world moves on too - every club's strength
-  // drifts a little and its squad gradually refreshes, see evolveWorldClub.
+  // drifts a little and its squad gradually refreshes, see evolveWorldClub -
+  // plus a real transfer window's worth of AI-to-AI moves between OTHER
+  // clubs, see simulateWorldTransfers.
   ALL_CLUBS.forEach((c, i) => evolveWorldClub(i));
+  simulateWorldTransfers();
   generateIncomingOffers();
   // Finishing top of the (estimated) table, not just clearing a fixed points
   // bar - ties the title directly to the same standings the table screen
@@ -3223,10 +3507,35 @@ function getTransferPool() {
   return pool;
 }
 
+// Your growing standing in the game's world - a real big club's players
+// don't move to a nobody, but they will once that "nobody" has actually
+// proven itself (won things, established itself in a strong league). Starts
+// at your own club's base strength and climbs with silverware, so a
+// newly-created save can't immediately raid the champions but a few good
+// seasons opens that door.
+function careerReputation() {
+  const base = effectiveClub(CAREER.clubIdx).strength || 1;
+  const silverware = CAREER.leagueTitlesWon * 0.04 + CAREER.uclTitlesWon * 0.08 + CAREER.uelTitlesWon * 0.04
+    + CAREER.faCupsWon * 0.02 + CAREER.leagueCupsWon * 0.015;
+  return base + silverware;
+}
+// How far above your own reputation a selling club's strength can sit
+// before they simply won't do business with you - a real big club selling
+// to a real minnow just doesn't happen, but it's a soft gap (not "never"),
+// so a strong-but-not-title-winning side can still pick off a squad player
+// from a considerably bigger club, just not their best players from the
+// very elite.
+const BUY_REPUTATION_GAP = 0.22;
+
 function signPlayer(cp) {
-  if (CAREER.budget < cp.value) return false;
   if (CAREER.squad.some(p => p.id === cp.id)) return false; // already signed - guards a stale button reference from a pre-reflow render
+  if (cp.clubIdx != null) {
+    const sellerStrength = effectiveClub(cp.clubIdx).strength || 1;
+    if (sellerStrength - careerReputation() > BUY_REPUTATION_GAP) return 'reputation';
+  }
+  if (CAREER.budget < cp.value) return 'budget';
   CAREER.budget -= cp.value;
+  cp.contractYears = Math.floor(rand(3, 6)); // a brand new deal at your club, not whatever was left on their old one
   CAREER.freeAgents = CAREER.freeAgents.filter(p => p.id !== cp.id);
   // A signing from another club needs pulling out of that club's cache too,
   // or it would still show up as browsable/signable a second time.
@@ -3268,6 +3577,19 @@ function releasePlayer(cp) {
   CAREER.squad = CAREER.squad.filter(p => p.id !== cp.id);
   CAREER.budget += Math.round(cp.value * 0.5);
   saveCareerSlot(CAREER.slot, CAREER);
+}
+
+// A fresh deal for someone already in your squad whose contract is about to
+// run out - a flat signing-on cost (not the full transfer value, they're
+// not being bought) plus resetting the countdown, same shape as a real
+// contract extension. Returns false (no budget change) if you can't afford it.
+function renewCareerPlayerContract(cp, cost) {
+  if (CAREER.budget < cost) return false;
+  CAREER.budget -= cost;
+  cp.contractYears = Math.floor(rand(3, 6));
+  cp.wage = Math.round(computePlayerWage(cp) * 1.1 * 10) / 10; // a renewal usually costs a bit more than their old wage
+  saveCareerSlot(CAREER.slot, CAREER);
+  return true;
 }
 
 let careerNextOfferId = 1;
@@ -3504,8 +3826,10 @@ function startPractice(yourIdx, mode, skillKey) {
   const awayPanel = document.getElementById('score-panel-away');
   homePanel.style.setProperty('--panel-color', TEAMS[yourIdx].shirt);
   homePanel.style.setProperty('--panel-text', readableTextColor(TEAMS[yourIdx].shirt));
+  homePanel.style.setProperty('--panel-badge', readableTextColor(TEAMS[yourIdx].shirt));
   awayPanel.style.setProperty('--panel-color', '#333333');
   awayPanel.style.setProperty('--panel-text', '#ffffff');
+  awayPanel.style.setProperty('--panel-badge', '#ffffff');
 
   // Only the shooter, the keeper, and (for free kicks) a wall take any part -
   // everyone else is parked off in a corner, out of the way.
@@ -3748,8 +4072,10 @@ function initMatchWithClubs(homeDef, oppDef, halfLenMin, skillKey) {
   const awayPanel = document.getElementById('score-panel-away');
   homePanel.style.setProperty('--panel-color', homeDef.shirt);
   homePanel.style.setProperty('--panel-text', readableTextColor(homeDef.shirt));
+  homePanel.style.setProperty('--panel-badge', readableTextColor(homeDef.shirt));
   awayPanel.style.setProperty('--panel-color', oppKit.shirt);
   awayPanel.style.setProperty('--panel-text', readableTextColor(oppKit.shirt));
+  awayPanel.style.setProperty('--panel-badge', readableTextColor(oppKit.shirt));
   updateCardIndicators();
   SFX.startCrowdAmbience();
   requestMobileFullscreen();
@@ -4026,6 +4352,7 @@ function releasePass(player, team, power) {
   G.ball.lastToucher = player;
   G.ball.kickImmuneFrom = player;
   G.ball.kickImmuneUntil = performance.now() / 1000 + 0.5;
+  G.ball.shotOrigin = null; // a pass isn't a shot attempt - don't let a stale shot's range difficulty leak into an accidental goal-mouth deflection
 }
 
 // `aim` (-1..1, left post to right post) is only passed for a human-steered
@@ -4080,6 +4407,7 @@ function releaseShot(player, team, power, aim) {
   G.ball.lastToucher = player;
   G.ball.kickImmuneFrom = player;
   G.ball.kickImmuneUntil = performance.now() / 1000 + 0.5;
+  G.ball.shotOrigin = { x: player.pos.x, y: player.pos.y };
 }
 
 function updateBall(dt) {
@@ -4209,8 +4537,8 @@ function checkGoalkeeperSmother() {
   const gk = G.teams[1 - carrier.__team].players.find(p => p.isGK);
   if (dist(carrier.pos, gk.pos) > GK_SMOTHER_RADIUS) return false;
   const now = performance.now() / 1000;
-  if (now - gk.lastTackleTry < TACKLE_RETRY_SEC) return false;
-  gk.lastTackleTry = now;
+  if (now - (gk.lastSmotherTry || 0) < GK_SMOTHER_RETRY_SEC) return false;
+  gk.lastSmotherTry = now;
   if (Math.random() >= clamp(GK_SMOTHER_CHANCE * gk.reflexes, 0.05, 0.95)) return false;
   SFX.catch();
   b.owner = gk;
@@ -4242,11 +4570,29 @@ function attackingTeamAtGoalEnd(endDir) {
   return G.teams.find(t => t.attackDir === endDir);
 }
 
+// How hard a shot is to convert, purely as a function of range - a real
+// finish is easiest from around the six-yard line out to just past the
+// penalty spot; any closer in gets harder again (a shot right on the goal
+// line has almost no angle to work with), and it gets steadily harder the
+// further out beyond the box. Returned as a multiplier on GK_SAVE_CHANCE
+// (>1 = harder to score, <1 = easier).
+function shotDistanceFactor(d) {
+  if (d <= SIX_YARD_DEPTH) return lerp(1.5, 0.85, d / SIX_YARD_DEPTH);
+  const sweetSpotEnd = SIX_YARD_DEPTH + 6; // six-yard box "and a bit further"
+  if (d <= sweetSpotEnd) return lerp(0.85, 0.7, (d - SIX_YARD_DEPTH) / (sweetSpotEnd - SIX_YARD_DEPTH));
+  if (d <= BOX_DEPTH) return lerp(0.7, 1.0, (d - sweetSpotEnd) / (BOX_DEPTH - sweetSpotEnd));
+  return clamp(1.0 + (d - BOX_DEPTH) * 0.035, 1.0, 2.2);
+}
+
 function resolveGoalAttempt(endDir) {
   const defender = defendingTeamAtGoalEnd(endDir);
   const attacker = attackingTeamAtGoalEnd(endDir);
   const gk = defender.players.find(p => p.isGK);
-  const saved = Math.random() < clamp(GK_SAVE_CHANCE * gk.reflexes, 0.05, 0.95);
+  const b = G.ball;
+  const goalPos = { x: endDir === 1 ? PITCH_LEN : 0, y: PITCH_WID / 2 };
+  const distFactor = b.shotOrigin ? shotDistanceFactor(dist(b.shotOrigin, goalPos)) : 1;
+  b.shotOrigin = null;
+  const saved = Math.random() < clamp(GK_SAVE_CHANCE * gk.reflexes * distFactor, 0.05, 0.95);
   if (saved) {
     SFX.catch();
     G.ball.owner = gk;
@@ -5020,6 +5366,7 @@ function update(dt) {
       aiTackleAttempt(p, dt);
     }
   }
+  resolvePlayerCollisions();
   updateBall(dt);
   autoAssignControl();
   updateCrowdTension();
@@ -5198,7 +5545,25 @@ function roundedRectPath(ctx, x, y, w, h, r) {
 // legs opposite each other for a scissoring stride instead of a static blob.
 // skinTone/hairColor are per-player (see SKIN_TONES/HAIR_COLORS) so a full
 // squad doesn't read as 11 copies of the same person.
-function drawPlayerSprite(ctx, cx, cy, shirt, shorts, controlled, stridePhase, skinTone, hairColor) {
+// Fills the current path (already built by the caller) with plain `shirt`,
+// or - if `stripe` is set (a real club with a genuinely striped home kit,
+// e.g. Newcastle, Juventus, Athletic Bilbao) - alternating vertical bars of
+// shirt/stripe clipped to that same path, so a striped-kit club actually
+// reads as striped instead of solid. `x`/`width` describe the path's own
+// bounding box (cheaper than computing it back out of the path).
+function fillKitPath(ctx, x, width, shirt, stripe) {
+  if (!stripe) { ctx.fillStyle = shirt; ctx.fill(); return; }
+  ctx.save();
+  ctx.clip();
+  const barW = width / 5; // 5 bars reads clearly as stripes at this sprite size
+  for (let i = 0; i < 5; i++) {
+    ctx.fillStyle = i % 2 === 0 ? shirt : stripe;
+    ctx.fillRect(x + i * barW, -1000, barW + 0.5, 2000); // tall enough to cover the clip regardless of y
+  }
+  ctx.restore();
+}
+
+function drawPlayerSprite(ctx, cx, cy, shirt, shorts, controlled, stridePhase, skinTone, hairColor, stripe) {
   ctx.fillStyle = 'rgba(0,0,0,0.28)';
   ctx.beginPath();
   ctx.ellipse(cx, cy + 7, 5, 2, 0, 0, Math.PI * 2);
@@ -5234,9 +5599,8 @@ function drawPlayerSprite(ctx, cx, cy, shirt, shorts, controlled, stridePhase, s
   ctx.fillStyle = skinTone;
   ctx.fillRect(cx - 1, cy - 5.6, 2, 1.4);
 
-  ctx.fillStyle = shirt;
   roundedRectPath(ctx, cx - 3.5, cy - 5, 7, 6, 1.6);
-  ctx.fill();
+  fillKitPath(ctx, cx - 3.5, 7, shirt, stripe);
   // a soft left-lit/right-shaded overlay instead of a flat fill, so the
   // torso reads as rounded rather than a flat colour swatch - an overlay
   // rather than a true colour gradient so it still works over any kit colour
@@ -5558,7 +5922,7 @@ function render() {
         // a visibly gassed player fades slightly, on top of actually moving slower
         const tired = !p.isGK && p.stamina < 0.45;
         if (tired) ctx.globalAlpha = 0.55 + (p.stamina / 0.45) * 0.45;
-        drawPlayerSprite(ctx, toCanvasX(p.pos.x), toCanvasY(p.pos.y) + bob, shirt, shorts, p === G.controlled, moving ? phase : null, p.skinTone, p.hairColor);
+        drawPlayerSprite(ctx, toCanvasX(p.pos.x), toCanvasY(p.pos.y) + bob, shirt, shorts, p === G.controlled, moving ? phase : null, p.skinTone, p.hairColor, p.isGK ? null : team.stripe);
         if (tired) ctx.globalAlpha = 1;
       }
     }
@@ -6138,12 +6502,71 @@ function populateCareerClubScreen() {
 // squad/transfer list reads at a glance instead of needing every label read.
 const POSITION_COLOR = { GK: '#eab308', DEF: '#3b82f6', MID: '#22c55e', FWD: '#ef4444' };
 
+// Retro-styled centred meeting overlay used in place of a plain browser
+// confirm() for anything that changes a real player's status (Sign,
+// Release, Renew) - a moment of flavour text plus a details card, rather
+// than a flat yes/no. Generic across all three: `kind` picks the flavour
+// pool/badge/title, `extraRows` are [label, value] pairs specific to that
+// action (value/wage/contract for a sign, a sell-on fee for a release,
+// etc.), and `onConfirm` only fires if Confirm is actually pressed - the
+// caller doesn't need to know or care that this isn't a synchronous
+// confirm() anymore.
+const CAREER_MEETING_COPY = {
+  sign: {
+    badge: 'TRANSFER TALKS', title: 'SIGNING MEETING',
+    flavor: cp => pick([
+      `Your agent sits down with ${cp.name}'s representatives to discuss a move...`,
+      `${cp.name} listens as you lay out your vision for the club...`,
+      `Contract talks are underway with ${cp.name}'s camp...`,
+      `You make your pitch to ${cp.name} across the negotiating table...`,
+    ]),
+  },
+  release: {
+    badge: 'SQUAD MEETING', title: 'RELEASE MEETING',
+    flavor: cp => pick([
+      `You call ${cp.name} into your office for a difficult conversation...`,
+      `${cp.name} is told their time at the club has come to an end...`,
+      `A hard meeting with ${cp.name} about their future away from the club...`,
+    ]),
+  },
+  renew: {
+    badge: 'CONTRACT TALKS', title: 'RENEWAL MEETING',
+    flavor: cp => pick([
+      `${cp.name}'s agent arrives to discuss a new deal...`,
+      `You sit down with ${cp.name} to talk about extending their stay...`,
+      `Renewal talks begin with ${cp.name}...`,
+    ]),
+  },
+};
+let careerMeetingOnConfirm = null;
+function showCareerMeeting({ kind, cp, confirmLabel, extraRows, onConfirm }) {
+  const copy = CAREER_MEETING_COPY[kind];
+  document.getElementById('career-meeting-badge').textContent = copy.badge;
+  document.getElementById('career-meeting-title').textContent = copy.title;
+  document.getElementById('career-meeting-flavor').textContent = copy.flavor(cp);
+  const rows = [
+    ['Player', cp.name],
+    ['Position', GROUP_LABEL[cp.group] || cp.group],
+    ...(extraRows || []),
+  ];
+  document.getElementById('career-meeting-details').innerHTML = rows
+    .map(([label, value]) => `<div class="meeting-detail-row"><span>${label}</span><span>${value}</span></div>`)
+    .join('');
+  const confirmBtn = document.getElementById('btn-career-meeting-confirm');
+  confirmBtn.textContent = confirmLabel;
+  confirmBtn.classList.toggle('meeting-confirm-danger', kind === 'release');
+  careerMeetingOnConfirm = onConfirm;
+  document.getElementById('career-meeting-overlay').classList.remove('hidden');
+}
+
 function formatCareerPlayerRow(cp, actionLabel, actionHandler) {
   const card = document.createElement('div');
   card.className = 'player-card';
   card.style.setProperty('--pos-color', POSITION_COLOR[cp.group] || '#64748b');
   const detail = cp.league ? `${cp.group}, age ${cp.age} — ${cp.club} (${cp.league})` : `${cp.group}, age ${cp.age}`;
-  card.innerHTML = `<span><span class="player-name">${cp.name}</span><span class="player-meta">${detail} — value £${cp.value}m${cp.careerGoals ? ` — ${cp.careerGoals} career goal${cp.careerGoals === 1 ? '' : 's'}` : ''}</span></span>`;
+  const contract = cp.contractYears != null ? ` — ${cp.contractYears}y left` : '';
+  const wage = cp.wage != null ? `, £${cp.wage}m/yr` : '';
+  card.innerHTML = `<span><span class="player-name">${cp.name}</span><span class="player-meta">${detail} — value £${cp.value}m${wage}${contract}${cp.careerGoals ? ` — ${cp.careerGoals} career goal${cp.careerGoals === 1 ? '' : 's'}` : ''}</span></span>`;
   const btn = document.createElement('button');
   btn.textContent = actionLabel;
   btn.onclick = actionHandler;
@@ -6239,9 +6662,29 @@ function renderCareerDashboard() {
   // Previously the season-complete summary only ever showed as a side-effect
   // of two specific buttons (Sim, or dismissing Full Time) - if neither of
   // those exact clicks happened next (e.g. backing out and reopening the
-  // save), it was silently lost. Checking it here instead means it's visible
-  // the moment the dashboard renders, however the season actually ended.
-  document.getElementById('career-season-summary-badge').classList.toggle('hidden', !CAREER.lastSeasonSummary);
+  // save), it was silently lost. Checking it here instead means it pops up
+  // the moment the dashboard renders, however the season actually ended -
+  // a blocking overlay you have to close, rather than a button you might
+  // never notice or click.
+  if (CAREER.lastSeasonSummary) {
+    const summary = CAREER.lastSeasonSummary;
+    CAREER.lastSeasonSummary = null;
+    showSeasonCompleteOverlay(summary);
+  }
+  // Last result updates instantly from the match log - rendered fresh every
+  // time the dashboard renders rather than queued, so mashing Sim to blow
+  // through fixtures never leaves it lagging behind (unlike the toast queue,
+  // which only shows one at a time with a fixed delay between each).
+  const lastResultEl = document.getElementById('career-last-result');
+  const lastMatch = (CAREER.matchLog || [])[CAREER.matchLog.length - 1];
+  if (lastMatch) {
+    const opp = ALL_CLUBS[lastMatch.oppIdx] ? ALL_CLUBS[lastMatch.oppIdx].name : 'Unknown';
+    lastResultEl.textContent = `Last: ${lastMatch.competition} - ${club.name} ${lastMatch.gf}-${lastMatch.ga} ${opp}`;
+    lastResultEl.style.setProperty('--result-color', MATCHLOG_RESULT_COLOR[lastMatch.result] || '#9ca3af');
+    lastResultEl.classList.remove('hidden');
+  } else {
+    lastResultEl.classList.add('hidden');
+  }
   const fixtureBox = document.getElementById('career-fixture-box');
   const fixtureEl = document.getElementById('career-next-fixture');
   if (CAREER.fixtureIdx < CAREER.fixtures.length) {
@@ -6390,9 +6833,12 @@ function startReserveIntoSelectedSlot(cp) {
   if (careerLineupSelectedSlot == null) { showToast('Select a starting player on the pitch first', '#eab308'); return; }
   const formation = CAREER_FORMATIONS[activeLineupCtx.formationKey] || FORMATION;
   const slot = formation[careerLineupSelectedSlot];
-  if (slot.group !== cp.group) {
+  if (!canPlayGroup(cp, slot.group)) {
     showToast(`${cp.name} plays ${GROUP_LABEL[cp.group]}, not ${GROUP_LABEL[slot.group]}`, '#e63946');
     return;
+  }
+  if (slot.group !== cp.group) {
+    showToast(`${cp.name} is out of position at ${GROUP_LABEL[slot.group]} - a bit less effective there`, '#eab308');
   }
   pinCurrentLineup(activeLineupCtx);
   activeLineupCtx.customLineup[careerLineupSelectedSlot] = cp.id;
@@ -6479,8 +6925,14 @@ function renderCareerLineupScreen() {
   reserves.slice().sort((a, b) => a.group.localeCompare(b.group)).forEach(cp => {
     if (ctx === CAREER) {
       const card = formatCareerPlayerRow(cp, 'Release', () => {
-        releasePlayer(cp);
-        renderCareerLineupScreen();
+        showCareerMeeting({
+          kind: 'release', cp, confirmLabel: 'Release',
+          extraRows: [['Sell-on fee', `£${Math.round(cp.value * 0.5)}m`]],
+          onConfirm: () => {
+            releasePlayer(cp);
+            renderCareerLineupScreen();
+          },
+        });
       });
       // Group Release + Start together as one flex child, rather than letting
       // .player-card's own space-between spread three items unevenly across
@@ -6495,6 +6947,25 @@ function renderCareerLineupScreen() {
       startBtn.textContent = 'Start';
       startBtn.onclick = () => startReserveIntoSelectedSlot(cp);
       actions.appendChild(startBtn);
+      // Only offered once it's actually worth worrying about - no point
+      // cluttering every card with a Renew button years before it matters.
+      if (cp.contractYears != null && cp.contractYears <= 1) {
+        const renewBtn = document.createElement('button');
+        renewBtn.className = 'career-lineup-start-btn';
+        const cost = Math.max(1, Math.round(cp.value * 0.05));
+        renewBtn.textContent = `Renew £${cost}m`;
+        renewBtn.onclick = () => {
+          showCareerMeeting({
+            kind: 'renew', cp, confirmLabel: `Renew £${cost}m`,
+            extraRows: [['Signing-on fee', `£${cost}m`], ['Current wage', `£${cp.wage}m/yr`]],
+            onConfirm: () => {
+              if (renewCareerPlayerContract(cp, cost)) renderCareerLineupScreen();
+              else showToast('Not enough budget to renew', '#e63946');
+            },
+          });
+        };
+        actions.appendChild(renewBtn);
+      }
       list.appendChild(card);
     } else {
       list.appendChild(formatCareerPlayerRow(cp, 'Start', () => startReserveIntoSelectedSlot(cp)));
@@ -6622,6 +7093,11 @@ function renderCareerHistoryScreen() {
 // screen (signing a player re-renders it) but resets whenever the screen is
 // opened fresh, same lifetime as careerClubSetup's own screen-local state.
 let careerMarketFilter = 'All';
+// null = showing the club-picker grid; a clubIdx (number) or the sentinel
+// 'free-agents' = drilled into that one "club"'s players. Reset to null
+// whenever the market screen is opened fresh or the league filter changes
+// (the previously-picked club may not even match the new filter).
+let careerMarketSelectedClub = null;
 
 // Transfer pool split into four columns by position, one going across, with
 // a row of source filter buttons above (All / Free Agents / one per league
@@ -6728,7 +7204,11 @@ function renderCareerTransferScreen() {
     const btn = document.createElement('button');
     btn.className = 'career-market-filter-btn' + (f === careerMarketFilter ? ' active' : '');
     btn.textContent = f;
-    btn.onclick = () => { careerMarketFilter = f; renderCareerTransferScreen(); };
+    btn.onclick = () => {
+      careerMarketFilter = f;
+      careerMarketSelectedClub = null; // the previously-picked club may not even match the new filter - back to the club grid
+      renderCareerTransferScreen();
+    };
     filterBar.appendChild(btn);
   });
   const filtered = pool.filter(cp => {
@@ -6736,6 +7216,65 @@ function renderCareerTransferScreen() {
     if (careerMarketFilter === 'Free Agents') return !cp.league;
     return cp.league === careerMarketFilter;
   });
+
+  const clubListEl = document.getElementById('career-market-club-list');
+  const playersPanelEl = document.getElementById('career-market-players-panel');
+
+  if (careerMarketSelectedClub == null) {
+    playersPanelEl.classList.add('hidden');
+    clubListEl.classList.remove('hidden');
+    renderCareerMarketClubList(clubListEl, filtered);
+    return;
+  }
+  clubListEl.classList.add('hidden');
+  playersPanelEl.classList.remove('hidden');
+  renderCareerMarketPlayersForClub(filtered);
+}
+
+// The club-picker grid - one tile per club (kit-coloured, like every other
+// club box in the game) that has at least one signable player in the
+// current filter, plus a Free Agents tile when there are any. Clicking a
+// tile drills into renderCareerMarketPlayersForClub for just that club.
+function renderCareerMarketClubList(clubListEl, filtered) {
+  clubListEl.innerHTML = '';
+  const byClub = new Map(); // clubIdx -> count
+  let freeAgentCount = 0;
+  filtered.forEach(cp => {
+    if (cp.clubIdx == null) { freeAgentCount++; return; }
+    byClub.set(cp.clubIdx, (byClub.get(cp.clubIdx) || 0) + 1);
+  });
+  const entries = [...byClub.entries()].sort((a, b) => ALL_CLUBS[a[0]].name.localeCompare(ALL_CLUBS[b[0]].name));
+  if (freeAgentCount) entries.unshift(['free-agents', freeAgentCount]);
+  if (!entries.length) {
+    clubListEl.innerHTML = '<p class="hint-text">No clubs match this filter.</p>';
+    return;
+  }
+  entries.forEach(([key, count]) => {
+    const tile = document.createElement('button');
+    tile.className = 'career-market-club-tile';
+    if (key === 'free-agents') {
+      tile.style.setProperty('--team-color', '#3f3f46');
+      tile.style.setProperty('--team-text', '#ffffff');
+      tile.innerHTML = `Free Agents<span class="club-tile-count">${count} player${count === 1 ? '' : 's'}</span>`;
+    } else {
+      const club = ALL_CLUBS[key];
+      tile.style.setProperty('--team-color', club.shirt);
+      tile.style.setProperty('--team-text', readableTextColor(club.shirt));
+      tile.innerHTML = `${club.name}<span class="club-tile-count">${count} player${count === 1 ? '' : 's'}</span>`;
+    }
+    tile.onclick = () => { careerMarketSelectedClub = key; renderCareerTransferScreen(); };
+    clubListEl.appendChild(tile);
+  });
+}
+
+// The signable players for whichever one club (or Free Agents) is currently
+// selected - same four GK/DEF/MID/FWD columns the old flat list used, just
+// scoped down to one club's players instead of the whole pool at once.
+function renderCareerMarketPlayersForClub(filtered) {
+  const key = careerMarketSelectedClub;
+  const clubName = key === 'free-agents' ? 'Free Agents' : ALL_CLUBS[key].name;
+  document.getElementById('career-market-club-name').textContent = clubName;
+  const clubPlayers = filtered.filter(cp => (key === 'free-agents' ? cp.clubIdx == null : cp.clubIdx === key));
   const cols = {
     GK: document.getElementById('career-market-gk'),
     DEF: document.getElementById('career-market-def'),
@@ -6743,7 +7282,7 @@ function renderCareerTransferScreen() {
     FWD: document.getElementById('career-market-fwd'),
   };
   Object.values(cols).forEach(col => { col.innerHTML = ''; });
-  filtered.forEach(cp => {
+  clubPlayers.forEach(cp => {
     const col = cols[cp.group];
     if (!col) return;
     col.appendChild(formatCareerPlayerRow(cp, `Sign £${cp.value}m`, () => {
@@ -6751,12 +7290,25 @@ function renderCareerTransferScreen() {
       // explicit confirmation of WHO was actually signed, that reflow reads
       // as "I signed the wrong player" even when the right one went through.
       const name = cp.name, value = cp.value;
-      if (signPlayer(cp)) {
-        showToast(`✅ Signed ${name} for £${value}m`, '#4ade80');
-        renderCareerTransferScreen();
-      } else {
-        showToast('Not enough budget', '#e63946');
+      if (cp.clubIdx != null && (effectiveClub(cp.clubIdx).strength || 1) - careerReputation() > BUY_REPUTATION_GAP) {
+        showToast(`${name}'s club won't sell to a side of your stature yet`, '#e63946');
+        return;
       }
+      showCareerMeeting({
+        kind: 'sign', cp, confirmLabel: `Sign £${value}m`,
+        extraRows: [['Fee', `£${value}m`], ['Wage', `£${cp.wage}m/yr`], ['Contract offered', `${cp.contractYears != null ? cp.contractYears : 3}y`]],
+        onConfirm: () => {
+          const result = signPlayer(cp);
+          if (result === true) {
+            showToast(`✅ Signed ${name} for £${value}m`, '#4ade80');
+            renderCareerTransferScreen();
+          } else if (result === 'reputation') {
+            showToast(`${name}'s club won't sell to a side of your stature yet`, '#e63946');
+          } else {
+            showToast('Not enough budget', '#e63946');
+          }
+        },
+      });
     }));
   });
 }
@@ -6909,19 +7461,26 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-career-play').onclick = () => { SFX.warmup(); startCareerMatch(); };
   document.getElementById('btn-career-sim').onclick = () => {
     careerSimNextFixture();
-    renderCareerDashboard();
-    if (CAREER.lastSeasonSummary) {
-      const summary = CAREER.lastSeasonSummary;
-      CAREER.lastSeasonSummary = null;
-      showSeasonCompleteOverlay(summary);
-    }
+    renderCareerDashboard(); // also pops the season-complete overlay itself, if that fixture ended the season
   };
   document.getElementById('btn-career-transfers').onclick = () => {
     careerMarketTab = (CAREER.incomingOffers || []).length > 0 ? 'offers' : 'buy';
+    careerMarketSelectedClub = null;
     renderCareerTransferScreen();
     showScreen('career-transfer-screen');
   };
   document.getElementById('btn-career-transfer-back').onclick = () => { showCareerDashboard(); };
+  document.getElementById('btn-market-club-back').onclick = () => { careerMarketSelectedClub = null; renderCareerTransferScreen(); };
+  document.getElementById('btn-career-meeting-cancel').onclick = () => {
+    document.getElementById('career-meeting-overlay').classList.add('hidden');
+    careerMeetingOnConfirm = null;
+  };
+  document.getElementById('btn-career-meeting-confirm').onclick = () => {
+    document.getElementById('career-meeting-overlay').classList.add('hidden');
+    const cb = careerMeetingOnConfirm;
+    careerMeetingOnConfirm = null;
+    if (cb) cb();
+  };
   document.getElementById('btn-market-tab-buy').onclick = () => { careerMarketTab = 'buy'; renderCareerTransferScreen(); };
   document.getElementById('btn-market-tab-offers').onclick = () => { careerMarketTab = 'offers'; renderCareerTransferScreen(); };
   document.getElementById('btn-career-squad').onclick = () => {
@@ -6939,25 +7498,13 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-formation-next').onclick = () => cycleCareerFormation(1);
   document.getElementById('btn-lineup-auto').onclick = () => resetCareerLineupToAuto();
   document.getElementById('btn-career-table').onclick = () => { renderCareerTableScreen(); showScreen('career-table-screen'); };
-  document.getElementById('career-season-summary-badge').onclick = () => {
-    if (!CAREER.lastSeasonSummary) return;
-    const summary = CAREER.lastSeasonSummary;
-    CAREER.lastSeasonSummary = null;
-    renderCareerDashboard();
-    showSeasonCompleteOverlay(summary);
-  };
   document.getElementById('btn-career-table-back').onclick = () => { showCareerDashboard(); };
   document.getElementById('career-club-box').onclick = () => { renderCareerHistoryScreen(); showScreen('career-history-screen'); };
   document.getElementById('btn-career-history-back').onclick = () => { showCareerDashboard(); };
   document.getElementById('btn-career-save-exit').onclick = () => { saveCareerSlot(CAREER.slot, CAREER); goToMainMenu(); };
   document.getElementById('btn-continue-career').onclick = () => {
     document.getElementById('fulltime-overlay').classList.add('hidden');
-    showCareerDashboard();
-    if (CAREER.lastSeasonSummary) {
-      const summary = CAREER.lastSeasonSummary;
-      CAREER.lastSeasonSummary = null;
-      showSeasonCompleteOverlay(summary);
-    }
+    showCareerDashboard(); // also pops the season-complete overlay itself, if that match ended the season
   };
   document.getElementById('btn-season-complete-continue').onclick = () => {
     document.getElementById('season-complete-overlay').classList.add('hidden');

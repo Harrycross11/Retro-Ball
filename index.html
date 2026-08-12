@@ -37,7 +37,7 @@
     <span id="menu-continue-detail" class="menu-continue-detail"></span>
   </button>
   <button id="btn-play" class="menu-panel panel-play">
-    <span class="panel-label">Play</span>
+    <span class="panel-label">Kick-Off</span>
   </button>
   <button id="btn-season" class="menu-panel panel-season">
     <span class="panel-label">Season</span>
@@ -284,11 +284,10 @@
         <span id="career-next-fixture" class="team-box-name"></span>
       </div>
       <button id="btn-career-table" class="table-btn-overlap">Table</button>
-      <!-- Only shown once a season has actually finished (see
-           renderCareerDashboard's lastSeasonSummary check) - previously the
-           summary only ever showed up as a side-effect of specific buttons,
-           so it could go unseen entirely if you backed out first. -->
-      <button id="career-season-summary-badge" class="career-season-summary-badge hidden">Season Complete - View Summary</button>
+      <!-- Most recent result (sim or played live) - always visible, no queue
+           or animation delay, updated straight from the match log every time
+           the dashboard renders (see renderCareerDashboard). -->
+      <span id="career-last-result" class="career-last-result hidden"></span>
     </div>
   </div>
   <div class="setup-bottom-row">
@@ -367,8 +366,11 @@
   <button id="btn-career-history-back" class="career-back-btn">Back</button>
 </div>
 
-<!-- CAREER: TRANSFER MARKET - four independently-scrollable columns
-     (Goalkeepers/Defenders/Midfielders/Attackers), each 1/4 of the width. -->
+<!-- CAREER: TRANSFER MARKET - browse by club first (a scrollable grid of
+     every club in the pool, kit-coloured like every other club box in the
+     game), then drill into that one club's players across the same four
+     independently-scrollable position columns as before - rather than one
+     giant flat list of every signable player in the game at once. -->
 <div id="career-transfer-screen" class="screen hidden theme-career career-market-screen">
   <div class="career-slots-banner career-market-banner">TRANSFER MARKET</div>
   <div id="career-budget-display" class="career-fixture-pill career-market-budget"></div>
@@ -378,22 +380,31 @@
   </div>
   <div id="career-market-buy-panel">
     <div id="career-market-filters" class="career-market-filters"></div>
-    <div class="career-market-columns">
-      <div class="career-market-col">
-        <h3>Goalkeepers</h3>
-        <div id="career-market-gk" class="career-market-col-list"></div>
+    <!-- Club picker - shown until a club (or Free Agents) is picked. -->
+    <div id="career-market-club-list" class="career-market-club-grid"></div>
+    <!-- That club's players - hidden until a club is picked. -->
+    <div id="career-market-players-panel" class="hidden">
+      <div class="career-market-club-header">
+        <button id="btn-market-club-back">Back to Clubs</button>
+        <span id="career-market-club-name"></span>
       </div>
-      <div class="career-market-col">
-        <h3>Defenders</h3>
-        <div id="career-market-def" class="career-market-col-list"></div>
-      </div>
-      <div class="career-market-col">
-        <h3>Midfielders</h3>
-        <div id="career-market-mid" class="career-market-col-list"></div>
-      </div>
-      <div class="career-market-col">
-        <h3>Attackers</h3>
-        <div id="career-market-fwd" class="career-market-col-list"></div>
+      <div class="career-market-columns">
+        <div class="career-market-col">
+          <h3>Goalkeepers</h3>
+          <div id="career-market-gk" class="career-market-col-list"></div>
+        </div>
+        <div class="career-market-col">
+          <h3>Defenders</h3>
+          <div id="career-market-def" class="career-market-col-list"></div>
+        </div>
+        <div class="career-market-col">
+          <h3>Midfielders</h3>
+          <div id="career-market-mid" class="career-market-col-list"></div>
+        </div>
+        <div class="career-market-col">
+          <h3>Attackers</h3>
+          <div id="career-market-fwd" class="career-market-col-list"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -840,6 +851,26 @@
 
 <!-- Recent goals/cards/subs, newest on top - a toast is easy to miss, this stays up -->
 <div id="event-ticker"></div>
+
+<!-- CAREER: TRANSFER/CONTRACT MEETING - a retro-styled centred overlay used
+     in place of a plain browser confirm() for Sign/Release/Renew, sitting
+     at the body level (not inside #match-screen like the in-match overlays)
+     so it can show over the Transfer Market or Squad screens too. One
+     generic overlay, populated per use by showCareerMeeting - see game.js. -->
+<div id="career-meeting-overlay" class="overlay hidden">
+  <div class="overlay-box career-meeting-box">
+    <div class="career-meeting-header">
+      <span id="career-meeting-badge" class="career-meeting-badge"></span>
+      <h2 id="career-meeting-title">MEETING</h2>
+    </div>
+    <p id="career-meeting-flavor" class="career-meeting-flavor"></p>
+    <div id="career-meeting-details" class="career-meeting-details"></div>
+    <div class="career-meeting-actions">
+      <button id="btn-career-meeting-cancel" class="career-meeting-cancel-btn">Walk Away</button>
+      <button id="btn-career-meeting-confirm" class="career-meeting-confirm-btn"></button>
+    </div>
+  </div>
+</div>
 
 <script src="game.js"></script>
 </body>

@@ -730,10 +730,16 @@ select {
   text-overflow: ellipsis;
 }
 
-/* The score itself sits in a white badge, digit coloured to match that side's team. */
+/* The score itself sits in a badge, digit coloured to match that side's team.
+   The badge background isn't just always white - a white/near-white kit
+   (Real Madrid, Spurs, Fulham...) would put a near-invisible white digit on
+   a white badge. --panel-badge is set alongside --panel-color/--panel-text
+   in JS to whichever of black/white actually contrasts with that team's
+   colour (see readableTextColor), so the badge itself flips dark for light
+   kits and stays light for dark kits. */
 .score-num {
   flex-shrink: 0;
-  background: #fff;
+  background: var(--panel-badge, #fff);
   color: var(--panel-color, #111);
   font-weight: bold;
   min-width: 28px;
@@ -1071,6 +1077,90 @@ select {
   70% { transform: scale(1.15); opacity: 1; }
   100% { transform: scale(1); opacity: 1; }
 }
+
+/* CAREER: TRANSFER/CONTRACT MEETING - lives at the body level (not inside
+   #match-screen like the goal/pause/etc. overlays), so it needs its own
+   z-index above every screen and the toast banner. Styled to match the
+   pitch-green/blocky-white "RETRO BALL" identity (see icon.svg) rather than
+   the plain dark .overlay-box every in-match overlay uses - subtle pitch
+   stripes, a chunky display-font title with the same hard drop-shadow the
+   app icon uses, gold accent on the confirm action. */
+#career-meeting-overlay { z-index: 60; }
+.career-meeting-box {
+  width: 420px;
+  max-width: 92vw;
+  background:
+    repeating-linear-gradient(100deg, rgba(255,255,255,0.05) 0 40px, rgba(255,255,255,0) 40px 80px),
+    linear-gradient(160deg, #1e8449, #0f3d20);
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  box-shadow: var(--shadow-md), 0 0 40px rgba(0, 0, 0, 0.35);
+}
+.career-meeting-header { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.career-meeting-badge {
+  display: inline-block;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #ffe08a;
+}
+.career-meeting-box h2 {
+  font-family: Impact, 'Arial Black', 'Franklin Gothic Bold', sans-serif;
+  font-size: 30px;
+  letter-spacing: 1px;
+  color: #ffffff;
+  margin: 0;
+  text-shadow: 3px 3px 0 rgba(0,0,0,0.45), 1px 1px 0 rgba(0,0,0,0.25);
+}
+.career-meeting-flavor {
+  font-style: italic;
+  opacity: 0.9;
+  font-size: 13px;
+  margin: 10px 0;
+}
+.career-meeting-details {
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  text-align: left;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.career-meeting-details .meeting-detail-row { display: flex; justify-content: space-between; gap: 12px; }
+.career-meeting-details .meeting-detail-row span:first-child { opacity: 0.75; }
+.career-meeting-details .meeting-detail-row span:last-child { font-weight: bold; }
+.career-meeting-actions { display: flex; gap: 10px; justify-content: center; }
+.career-meeting-actions button {
+  font-family: inherit;
+  font-weight: bold;
+  font-size: 14px;
+  border-radius: 999px;
+  padding: 10px 22px;
+  cursor: pointer;
+}
+.career-meeting-confirm-btn {
+  background: linear-gradient(135deg, #eab308, #92400e);
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  color: #fff;
+}
+.career-meeting-confirm-btn:hover { filter: brightness(1.1); }
+/* Releasing someone is destructive, not a deal being struck - red instead
+   of the gold "good news" gradient every other confirm action uses. */
+.career-meeting-confirm-btn.meeting-confirm-danger { background: linear-gradient(135deg, #dc2626, #7f1d1d); }
+.career-meeting-cancel-btn {
+  background: rgba(0, 0, 0, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+.career-meeting-cancel-btn:hover { background: rgba(0, 0, 0, 0.5); }
 
 #confetti-layer {
   position: fixed;
@@ -1472,29 +1562,28 @@ select {
    corner from Back/Save & Exit so it doesn't read as a "leave" action. */
 #career-fixture-box .table-btn-overlap { position: absolute; right: 8px; top: 8px; z-index: 5; margin: 0; font-size: 12px; padding: 5px 10px; }
 
-/* Persistent "season just ended" indicator - a real button (not a passive
-   badge) since the whole point is it needs to be noticed and clicked,
-   regardless of which path (live play, Sim, or reopening the save) ended
-   the season. Sits at the bottom of the fixture box, gold/celebratory rather
-   than the fixture box's usual team-colour tint so it stands out from it. */
-.career-season-summary-badge {
+/* Last result strip - sits at the bottom of the fixture box. Plain state
+   update (no animation/queue) so it can never lag behind mashing Sim; the
+   colour alone (win/draw/loss) is enough to read at a glance. */
+.career-last-result {
   position: absolute;
   left: 8px;
   right: 8px;
   bottom: 8px;
   z-index: 5;
   margin: 0;
+  display: block;
   font-size: 12px;
   font-weight: bold;
   padding: 7px 10px;
-  background: linear-gradient(135deg, #eab308, #92400e);
-  border: 1px solid rgba(255,255,255,0.5);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--result-color, var(--border));
+  color: var(--result-color, var(--text));
   box-shadow: var(--shadow-sm);
-  animation: seasonBadgePulse 1.4s ease-in-out infinite;
-}
-@keyframes seasonBadgePulse {
-  0%, 100% { filter: brightness(1); }
-  50% { filter: brightness(1.25); }
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Online team-pick screen's Squad box - same purple identity as Career's
@@ -1691,6 +1780,68 @@ select {
   font-size: 11px;
   font-weight: bold;
   padding: 0 4px;
+}
+
+/* Club picker - a scrollable grid of every club currently in the transfer
+   pool (see renderCareerTransferScreen), each tile kit-coloured the same
+   way every other club box in the game is (--team-color/--team-text). */
+.career-market-club-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  padding: 4px 12px 44px; /* bottom clears the back button overlapping the bottom-left corner */
+}
+.career-market-club-tile {
+  background: var(--team-color, #333);
+  color: var(--team-text, #fff);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  padding: 10px 8px;
+  font-family: inherit;
+  font-weight: bold;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.career-market-club-tile:hover { border-color: rgba(255, 255, 255, 0.7); }
+.career-market-club-tile .club-tile-count { font-size: 11px; font-weight: normal; opacity: 0.85; }
+
+#career-market-players-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.career-market-club-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px 6px;
+  flex: 0 0 auto;
+}
+.career-market-club-header #btn-market-club-back {
+  position: static; /* overrides .back-btn-overlap's corner positioning - sits inline in this header instead */
+  background: rgba(0, 0, 0, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-family: inherit;
+  font-weight: bold;
+  font-size: 12px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.career-market-club-header #btn-market-club-back:hover { opacity: 0.9; }
+.career-market-club-header #career-market-club-name {
+  font-weight: bold;
+  font-size: 14px;
+  opacity: 0.9;
 }
 
 .career-market-columns {
