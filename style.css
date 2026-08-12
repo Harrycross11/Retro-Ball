@@ -163,16 +163,19 @@ select {
 #main-menu .panel-play { background: linear-gradient(160deg, #1e8449, #0f3d20); }
 #main-menu .panel-season { background: linear-gradient(160deg, #2f5fdb, #12224f); }
 #main-menu .panel-cup { background: linear-gradient(160deg, #d1a72e, #7a4a0a); }
-#main-menu .panel-practice { background: linear-gradient(160deg, #d2691e, #6b2f0a); }
 #main-menu .panel-career { background: linear-gradient(160deg, #17a591, #0b3733); }
 /* Indigo/violet - distinct from every other panel's colour family (no other
    panel is purple), reads as "network/connect" rather than a pitch/trophy
    theme like the rest of the menu. */
 #main-menu .panel-online { background: linear-gradient(160deg, #6633b3, #1c1440); }
-#main-menu .panel-exit { background: linear-gradient(160deg, #9b3a3a, #241a1f); }
+/* Full width, same treatment as Play at the top - without this, removing
+   Practice left an odd number of cards (Season/Cup/Career/Online) in the
+   2-column grid below, so Exit would sit alone in a half-empty row instead
+   of a deliberate full-width one. */
+#main-menu .panel-exit { grid-column: 1 / -1; background: linear-gradient(160deg, #9b3a3a, #241a1f); }
 
 /* Settings/stats - deliberately NOT part of the card grid above (that would
-   break the clean 1-primary + 2-column-of-6 layout) - just corner buttons. */
+   break the clean 1-primary + 2-column-of-4 + 1-full-width layout) - just corner buttons. */
 #menu-corner-buttons {
   position: absolute;
   top: 10px;
@@ -211,19 +214,18 @@ select {
   .setup-card { padding: 16px 20px; }
 }
 
-/* Deeper setup/progress screens (Play/Season/Cup/Practice) - same themed
+/* Deeper setup/progress screens (Play/Season/Cup) - same themed
    background as the main-menu button that led here, so it's clear which
    section you're in, with a card up front so the form itself stays legible
    over a busier background. Each theme also sets --accent, picked up by the
    primary action button and the select focus outline for its own twist. */
-.theme-play, .theme-season, .theme-cup, .theme-practice, .theme-settings, .theme-stats, .theme-career, .theme-online {
+.theme-play, .theme-season, .theme-cup, .theme-settings, .theme-stats, .theme-career, .theme-online {
   position: relative;
   overflow: hidden;
 }
 .theme-play { background: linear-gradient(160deg, #1e8449, #0f3d20); --accent: #22c55e; }
 .theme-season { background: linear-gradient(160deg, #2f5fdb, #12224f); --accent: #3b82f6; }
 .theme-cup { background: linear-gradient(160deg, #d1a72e, #7a4a0a); --accent: #eab308; }
-.theme-practice { background: linear-gradient(160deg, #d2691e, #6b2f0a); --accent: #f97316; }
 .theme-settings { background: linear-gradient(160deg, #55677d, #202b3a); --accent: #64748b; }
 .theme-stats { background: linear-gradient(160deg, #8657e0, #33195e); --accent: #eab308; }
 /* Same indigo family as the main-menu Online panel, light violet accent
@@ -588,26 +590,6 @@ select {
   border-top: 34px solid rgba(255, 255, 255, 0.85);
 }
 
-/* Start Practice box - the same muted two-tone training-cone stripes, with a
-   simple target/bullseye graphic standing in for a practice target. Softer
-   than the old bright-orange/white version - two close warm tones instead
-   of a stark white flash, easier on the eye without losing the identity. */
-.custom-setup-screen .practice-start-box {
-  cursor: pointer;
-  font-family: inherit;
-  flex-direction: column;
-  gap: 10px;
-  background: linear-gradient(160deg, #d2691e, #6b2f0a);
-}
-.custom-setup-screen .practice-start-box:hover { filter: brightness(1.1); }
-.practice-start-graphic {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  border: 2px solid rgba(17, 24, 39, 0.7);
-  background: repeating-radial-gradient(circle, #c23b3b 0 6px, #e8dcc8 6px 12px);
-}
-
 /* Rank box - six difficulty tiles, flush against each other (no gap/padding,
    so the tiles' own colours cover the whole box instead of the dark
    .quarter-box background showing through as gaps), square corners. */
@@ -675,7 +657,6 @@ select {
   .season-bar { width: 8px; }
   .season-start-word { font-size: 12px; }
   .cup-start-graphic { border-left-width: 16px; border-right-width: 16px; border-top-width: 22px; }
-  .practice-start-graphic { width: 28px; height: 28px; }
 }
 
 .setup-row {
@@ -1137,6 +1118,54 @@ select {
 .career-meeting-details .meeting-detail-row { display: flex; justify-content: space-between; gap: 12px; }
 .career-meeting-details .meeting-detail-row span:first-child { opacity: 0.75; }
 .career-meeting-details .meeting-detail-row span:last-child { font-weight: bold; }
+.career-meeting-step {
+  font-size: 11px;
+  font-weight: bold;
+  opacity: 0.75;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+/* Contract-length picker (personal-terms step) - a row of year buttons, the
+   currently-chosen one highlighted, same idea as the rank-tile selector
+   used elsewhere. */
+.career-meeting-length-picker { display: flex; gap: 6px; justify-content: center; margin-bottom: 12px; }
+.career-meeting-length-picker button {
+  font-family: inherit;
+  font-weight: bold;
+  font-size: 13px;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  opacity: 0.75;
+}
+.career-meeting-length-picker button.active {
+  background: linear-gradient(135deg, #eab308, #92400e);
+  border-color: rgba(255, 255, 255, 0.7);
+  opacity: 1;
+}
+/* Negotiation offer tiers - one button per tier (Lowball/Fair/Generous
+   etc, see FEE_OFFER_TIERS/WAGE_OFFER_TIERS), replacing the single plain
+   Confirm button while a sign negotiation is in its offer-choosing step. */
+.career-meeting-tiers { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.career-meeting-tiers button {
+  font-family: inherit;
+  font-weight: bold;
+  font-size: 13px;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.career-meeting-tiers button:hover { background: rgba(0, 0, 0, 0.45); }
+.career-meeting-tiers button .tier-odds { opacity: 0.7; font-weight: normal; font-size: 11px; }
 .career-meeting-actions { display: flex; gap: 10px; justify-content: center; }
 .career-meeting-actions button {
   font-family: inherit;

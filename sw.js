@@ -2,14 +2,13 @@
 // cache out. Less critical now the fetch handler below is network-first
 // (see that comment), but still worth bumping on real updates so anyone
 // currently offline gets the new files into their fallback cache sooner.
-const CACHE_NAME = 'retro-ball-v3';
+const CACHE_NAME = 'retro-ball-v4';
 const ASSETS = [
   './',
   './index.html',
   './game.js',
   './style.css',
   './manifest.json',
-  './icon.svg',
   './icon-192.png',
   './icon-512.png',
 ];

@@ -12,7 +12,7 @@
      normal page, only when installed. -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0d1117">
-<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icon-512.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -44,9 +44,6 @@
   </button>
   <button id="btn-cup" class="menu-panel panel-cup">
     <span class="panel-label">Cup</span>
-  </button>
-  <button id="btn-practice" class="menu-panel panel-practice">
-    <span class="panel-label">Practice</span>
   </button>
   <button id="btn-career" class="menu-panel panel-career">
     <span class="panel-label">Career</span>
@@ -169,43 +166,6 @@
   </div>
 </div>
 
-<!-- PRACTICE SETUP -->
-<div id="practice-setup-screen" class="screen hidden match-setup-custom custom-setup-screen">
-  <div class="setup-top-row">
-    <div class="team-box" id="practice-team-box">
-      <button id="practice-team-prev" class="team-arrow" aria-label="Previous team">&#10094;</button>
-      <span id="practice-team-name" class="team-box-name">Team</span>
-      <button id="practice-team-next" class="team-arrow" aria-label="Next team">&#10095;</button>
-    </div>
-  </div>
-  <div class="setup-bottom-row">
-    <div class="quarter-box clock-box">
-      <span class="clock-title">Drill</span>
-      <div class="clock-controls">
-        <button id="practice-mode-prev" class="team-arrow" aria-label="Previous drill">&#10094;</button>
-        <div class="clock-dial">
-          <span id="practice-mode-label" class="clock-value">Penalties</span>
-        </div>
-        <button id="practice-mode-next" class="team-arrow" aria-label="Next drill">&#10095;</button>
-      </div>
-      <button id="btn-practice-back-menu" class="back-btn-overlap">Back</button>
-    </div>
-    <button id="btn-start-practice" class="quarter-box practice-start-box">
-      <span class="practice-start-graphic"></span>
-      <span class="kickoff-word">START PRACTICE</span>
-    </button>
-    <div class="quarter-box rank-box">
-      <div class="rank-grid">
-        <button class="rank-tile rank-bronze" data-skill="hard"><span class="rank-name">Bronze</span></button>
-        <button class="rank-tile rank-silver" data-skill="expert"><span class="rank-name">Silver</span></button>
-        <button class="rank-tile rank-gold" data-skill="legendary"><span class="rank-name">Gold</span></button>
-        <button class="rank-tile rank-diamond" data-skill="champion"><span class="rank-name">Diamond</span></button>
-        <button class="rank-tile rank-platinum" data-skill="grandmaster"><span class="rank-name">Platinum</span></button>
-        <button class="rank-tile rank-champion" data-skill="legend"><span class="rank-name">Champion</span></button>
-      </div>
-    </div>
-  </div>
-</div>
 
 <!-- CAREER: SAVE SLOTS - six boxes filling the whole screen (top row/bottom
      row of three), same box system as the Match Setup screen, rather than a
@@ -413,7 +373,7 @@
 </div>
 
 <!-- ONLINE: MODE PICKER - same "box design" grid as every other setup screen
-     (Play/Season/Cup/Practice/Career), rather than a single centered card. -->
+     (Play/Season/Cup/Career), rather than a single centered card. -->
 <div id="online-menu-screen" class="screen hidden match-setup-custom custom-setup-screen theme-online">
   <div class="setup-top-row">
     <button id="btn-online-host" class="quarter-box online-host-box">
@@ -862,9 +822,18 @@
     <div class="career-meeting-header">
       <span id="career-meeting-badge" class="career-meeting-badge"></span>
       <h2 id="career-meeting-title">MEETING</h2>
+      <!-- Only shown mid-negotiation (see startSignNegotiation) - "Step 1 of 2" etc. -->
+      <span id="career-meeting-step" class="career-meeting-step hidden"></span>
     </div>
     <p id="career-meeting-flavor" class="career-meeting-flavor"></p>
     <div id="career-meeting-details" class="career-meeting-details"></div>
+    <!-- Contract-length picker - only shown on the personal-terms step of a
+         sign negotiation (see startSignNegotiation). -->
+    <div id="career-meeting-length-picker" class="career-meeting-length-picker hidden"></div>
+    <!-- Negotiation offer tiers - shown instead of the plain Confirm button
+         during a sign negotiation (see startSignNegotiation); hidden for a
+         plain one-shot confirm (Release/Renew/etc, see showCareerMeeting). -->
+    <div id="career-meeting-tiers" class="career-meeting-tiers hidden"></div>
     <div class="career-meeting-actions">
       <button id="btn-career-meeting-cancel" class="career-meeting-cancel-btn">Walk Away</button>
       <button id="btn-career-meeting-confirm" class="career-meeting-confirm-btn"></button>
