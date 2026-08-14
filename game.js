@@ -151,7 +151,7 @@ const TEAMS = [
       MID: ['Enzo Fernández', 'Moisés Caicedo', 'Romeo Lavia', 'Cole Palmer', 'Kiernan Dewsbury-Hall', 'Andrey Santos'],
       FWD: ['Nicolas Jackson', 'João Pedro', 'Pedro Neto', 'Christopher Nkunku', 'Tyrique George', 'Marc Guiu'],
     } },
-  { name: 'Crystal Palace', shirt: '#C4122E', shorts: '#1B458F', strength: 1.01, press: 'low', away: { shirt: '#111111', shorts: '#111111' },
+  { name: 'Crystal Palace', shirt: '#C4122E', shorts: '#1B458F', stripe: '#1B458F', strength: 1.01, press: 'low', away: { shirt: '#111111', shorts: '#111111' },
     squad: {
       GK: ['Dean Henderson', 'Remi Matthews'],
       DEF: ['Marc Guéhi', 'Maxence Lacroix', 'Tyrick Mitchell', 'Daniel Muñoz', 'Chris Richards', 'Nathaniel Clyne', 'Chadi Riad', 'Borna Sosa'],
@@ -875,6 +875,18 @@ BUNDESLIGA_TEAMS.forEach(t => t.league = 'Bundesliga');
 SERIE_A_TEAMS.forEach(t => t.league = 'Serie A');
 const ALL_CLUBS = [...TEAMS, ...CHAMPIONSHIP_TEAMS, ...LA_LIGA_TEAMS, ...LIGUE1_TEAMS, ...BUNDESLIGA_TEAMS, ...SERIE_A_TEAMS];
 const CAREER_LEAGUES = ['Premier League', 'EFL Championship', 'La Liga', 'Ligue 1', 'Bundesliga', 'Serie A'];
+// Short codes for the compact league switcher on the team-pick boxes (see
+// .team-box-league) - the full name doesn't fit at a size worth actually
+// reading, so this is what's shown there instead; the full name is still
+// available as a tooltip.
+const LEAGUE_ABBR = {
+  'Premier League': 'PL',
+  'EFL Championship': 'CHA',
+  'La Liga': 'LIGA',
+  'Ligue 1': 'L1',
+  'Bundesliga': 'BUN',
+  'Serie A': 'SA',
+};
 
 // What each press style actually changes: dropMult scales defendTarget's
 // "how far to drop off from home when out of possession" (below 1 = holds a
@@ -916,9 +928,9 @@ const FORMATION = [
 // easy/medium are kept (existing saves may still reference them) but are no
 // longer reachable from the rank tiles - Bronze through Champion were shifted
 // two tiers harder (Bronze now plays at the old Gold/"hard" difficulty), and
-// grandmaster/legend are two brand new tiers added above the old ceiling
-// (champion) so there are still 6 selectable ranks - see the rank-tile
-// data-skill attributes in index.html.
+// grandmaster/legend/mythic/invincible are four brand new tiers added above
+// the old ceiling (champion), for 8 selectable ranks total (Bronze through
+// Invincible) - see the rank-tile data-skill attributes in index.html.
 const SKILLS = {
   easy:      { speed: 4.4, pressBoost: 1.08, tackleChance: 0.40, noise: 3.0,  reassessMin: 0.70, reassessMax: 1.40, shootRange: 16 },
   medium:    { speed: 5.0, pressBoost: 1.10, tackleChance: 0.52, noise: 1.6,  reassessMin: 0.50, reassessMax: 1.00, shootRange: 20 },
@@ -928,6 +940,10 @@ const SKILLS = {
   champion:  { speed: 6.6, pressBoost: 1.18, tackleChance: 0.80, noise: 0.08, reassessMin: 0.12, reassessMax: 0.28, shootRange: 36 },
   grandmaster: { speed: 6.8, pressBoost: 1.20, tackleChance: 0.84, noise: 0.05, reassessMin: 0.09, reassessMax: 0.22, shootRange: 38 },
   legend:      { speed: 7.0, pressBoost: 1.22, tackleChance: 0.87, noise: 0.03, reassessMin: 0.07, reassessMax: 0.18, shootRange: 40 },
+  // Two extra tiers above the old ceiling (legend/"Champion" tile) - internal
+  // keys avoid "legendary" since that name is already taken by the Gold tile.
+  mythic:      { speed: 7.15, pressBoost: 1.24, tackleChance: 0.90, noise: 0.02, reassessMin: 0.05, reassessMax: 0.14, shootRange: 43 },
+  invincible:  { speed: 7.3, pressBoost: 1.26, tackleChance: 0.93, noise: 0.01, reassessMin: 0.04, reassessMax: 0.11, shootRange: 46 },
 };
 const HUMAN_SPEED = 6.2;
 // How fast a player's actual velocity can change (m/s^2) - both speeding up
@@ -940,10 +956,41 @@ const TACKLE_RADIUS = 1.6;
 // bodies stacking on top of each other. Smaller than TACKLE_RADIUS so a
 // tackle can still trigger before the shove keeps them apart.
 const PLAYER_MIN_SEP = 1.05;
-const TACKLE_RETRY_SEC = 0.9;
+// Was 0.9 - a pressing defender that's actually caught up to the ball
+// carrier should get another go at it quickly, not stand there marking
+// time for most of a second while the human just keeps dribbling.
+const TACKLE_RETRY_SEC = 0.6;
 const PICKUP_RADIUS = 1.1;
+// A generous "reception magnet" radius for whichever player a pass was
+// actually aimed at (see releasePass/checkPickup) - now that passes carry
+// real speed (see PASS_MIN_ARRIVAL_SPEED), a small directional miss (skill
+// wobble, or the receiver having drifted slightly since the ball was
+// kicked) used to send it sailing well past them uncollected instead of
+// being trapped. Only the intended receiver gets the bigger radius -
+// everyone else (an interceptor reading the pass) still uses PICKUP_RADIUS.
+const PASS_RECEPTION_RADIUS = 2.2;
 const HUMAN_TACKLE_CHANCE = 0.65;
-const PASS_MIN_SPEED = 9, PASS_MAX_SPEED = 23;
+// PASS_MIN_SPEED was 9 - even a bare tap felt soft, so a short pass barely
+// crept up to a nearby teammate rather than actually arriving with any
+// real pace.
+const PASS_MIN_SPEED = 13, PASS_MAX_SPEED = 23;
+// Ball deceleration under normal pitch friction (m/s^2) - shared between
+// updateBall's actual physics and releasePass's distance-assist calc below,
+// so the assist's "will this reach them" math always matches how the ball
+// really slows down.
+const PITCH_FRICTION = 3.2;
+// A tap-power pass still arrives with at least this much pace rather than
+// dying right at the receiver's feet - see releasePass's distance assist.
+// Was 7 - too gentle to really feel like it arrived "with speed", meaning
+// the receiver often still had to close the last bit of ground themselves.
+const PASS_MIN_ARRIVAL_SPEED = 15;
+// Inside this many metres of a touchline/goal line, a pass's usual skill-based
+// wobble gets suppressed toward zero - see releasePass's edge assist.
+const PASS_EDGE_ASSIST_MARGIN = 4;
+// Below this much drag on the Shoot joystick (0..1 of its max throw), a
+// release is treated as a plain tap rather than a deliberate aim - see
+// bindShootJoystick/onChargeRelease.
+const SHOOT_DRAG_THRESHOLD = 0.15;
 // Even a bare-minimum-charge shot (SHOT_MIN_SPEED) is faster than a
 // fully-charged pass (PASS_MAX_SPEED), so a shot never feels weaker than a
 // pass just because it wasn't held as long. Applies equally to both teams -
@@ -967,12 +1014,53 @@ const GK_SMOTHER_RETRY_SEC = 0.3;
 // it applies to everyone in that phase of play, not just the ball carrier.
 const FINAL_THIRD_PACE_BOOST = 1.08;
 const FINAL_THIRD_TACKLE_BOOST = 1.12;
+// A ball carrier's Dribbling (close control) and Strength (holding a
+// challenge off) genuinely make them harder to dispossess - previously
+// tackle chance only ever looked at the TACKLER's own skill, never who they
+// were actually up against. >1 for a strong dribbler/physical carrier
+// (divides tackle chance down), <1 for a weak one (tackle chance goes up).
+function carrierResistance(carrier) {
+  if (!carrier) return 1;
+  const dribbling = carrier.dribbling != null ? carrier.dribbling : 1;
+  const strength = carrier.strength != null ? carrier.strength : 1;
+  return clamp((dribbling + strength) / 2, 0.6, 1.5);
+}
 function finalThirdMultiplier(team, kind) {
   const thirdX = PITCH_LEN / 3;
   const inAttackThird = team.attackDir === 1 ? G.ball.pos.x > PITCH_LEN - thirdX : G.ball.pos.x < thirdX;
   const inDefendThird = team.attackDir === 1 ? G.ball.pos.x < thirdX : G.ball.pos.x > PITCH_LEN - thirdX;
   if (kind === 'pace' && inAttackThird) return FINAL_THIRD_PACE_BOOST;
   if (kind === 'tackle' && inDefendThird) return FINAL_THIRD_TACKLE_BOOST;
+  return 1;
+}
+
+// ---------- Momentum/morale ----------
+// A short-lived, decaying edge for whoever just scored (and a corresponding
+// dip for whoever just conceded) - same idea as a real team riding a "hot"
+// few minutes after a goal, or looking rattled right after shipping one.
+// Deliberately small and short-lived (see MOMENTUM_DECAY_RATE) next to the
+// final-third boost above - this is meant to be a felt nudge, not something
+// that snowballs a single goal into a rout on its own.
+const MOMENTUM_GOAL_BOOST = 0.4;   // scorer's momentum jumps by this (of a -1..1 range)
+const MOMENTUM_CONCEDE_HIT = 0.2;  // conceding side dips by this (smaller - not scored on both fronts at once)
+const MOMENTUM_PACE_BOOST_MAX = 0.05;   // +-5% pace at full momentum
+const MOMENTUM_TACKLE_BOOST_MAX = 0.08; // +-8% tackle chance at full momentum
+// How fast momentum decays back toward 0, scaled against half length the
+// same way STAMINA_DRAIN is - a higher number fades the effect out sooner.
+// At 6, a goal's swing is mostly gone within a third or so of a half.
+const MOMENTUM_DECAY_RATE = 6;
+function updateMomentum(dt) {
+  if (!G.momentum) return;
+  const decay = clamp((dt / G.halfLengthSec) * MOMENTUM_DECAY_RATE, 0, 1);
+  G.momentum[0] = lerp(G.momentum[0], 0, decay);
+  G.momentum[1] = lerp(G.momentum[1], 0, decay);
+}
+function momentumMultiplier(team, kind) {
+  if (!G.momentum) return 1;
+  const idx = G.teams.indexOf(team);
+  const m = idx >= 0 ? G.momentum[idx] : 0;
+  if (kind === 'pace') return 1 + m * MOMENTUM_PACE_BOOST_MAX;
+  if (kind === 'tackle') return 1 + m * MOMENTUM_TACKLE_BOOST_MAX;
   return 1;
 }
 
@@ -1045,6 +1133,10 @@ function sub(a, b) { return { x: a.x - b.x, y: a.y - b.y }; }
 function len(v) { return Math.hypot(v.x, v.y); }
 function norm(v) { const l = len(v); return l < 1e-6 ? { x: 0, y: 0 } : { x: v.x / l, y: v.y / l }; }
 function lerp(a, b, t) { return a + (b - a) * t; }
+function rotateVec(v, angle) {
+  const c = Math.cos(angle), s = Math.sin(angle);
+  return { x: v.x * c - v.y * s, y: v.x * s + v.y * c };
+}
 
 // Eases a player's velocity toward a target velocity at a limited rate
 // (accel, in m/s^2) instead of snapping straight to it - used for both
@@ -1066,6 +1158,7 @@ const NIGHT_MATCH_CHANCE = 0.4; // rolled once per match/practice - see G.isNigh
 const RAIN_CHANCE = 0.3; // rolled once per match/practice - see G.weather
 const RAIN_DROP_COUNT = 140;
 const RAIN_FRICTION_MULT = 0.7; // a wet pitch is skiddier - the ball loses speed more slowly, see updateBall
+const RAIN_WOBBLE_BONUS = 0.06; // ~3.5deg of extra pass wobble in the rain for every player, see releasePass
 
 // ---------- Dirt/turf particles ----------
 // Small transient flecks kicked up at a world position (x,y) - tackles get a
@@ -1369,6 +1462,63 @@ function readableTextColor(hex) {
   return luminance > 0.55 ? '#111111' : '#ffffff';
 }
 
+// A longer club name (e.g. "Borussia Mönchengladbach", "Sheffield
+// Wednesday") would just get silently ellipsis-cut inside a narrow label
+// like the Career dashboard's "Next Fixture" box - this swaps it for a
+// short abbreviation instead once it's past a length that box can actually
+// fit, e.g. "Manchester United" -> "MU", "West Ham United" -> "WHU". Multi-
+// word names use one letter per meaningful word; a single-word name just
+// takes its first few letters.
+function abbreviateClubName(name) {
+  const words = name.split(/\s+/).filter(w => w.length > 0);
+  const meaningful = words.filter(w => !['de', 'of', 'the', '&'].includes(w.toLowerCase()));
+  const useWords = meaningful.length >= 2 ? meaningful : words;
+  if (useWords.length >= 2) return useWords.map(w => w[0]).join('').toUpperCase().slice(0, 4);
+  return name.slice(0, 3).toUpperCase();
+}
+// Only swaps to the short form once the name is long enough that the
+// "Next Fixture" box would actually have truncated it - short names
+// (Arsenal, Chelsea, ...) still show in full.
+function fixtureOpponentLabel(name) {
+  return name.length > 14 ? abbreviateClubName(name) : name;
+}
+
+// Short code (see LEAGUE_ABBR) with the full name still available as a
+// tooltip - used by the team-pick boxes' compact league switcher.
+function setLeagueLabel(el, league) {
+  if (!el) return;
+  el.textContent = LEAGUE_ABBR[league] || league;
+  el.title = league;
+}
+
+// Fills in a .team-crest element (the in-match scoreboard's crest-home/
+// crest-away, and the goal banner's crest) with a club's initials on its
+// own shirt colour - no real badge artwork, same idea as the mode-browser's
+// club-crest chips elsewhere in the app.
+function setTeamCrest(elId, def) {
+  const el = document.getElementById(elId);
+  if (!el || !def) return;
+  el.textContent = def.name.slice(0, 3).toUpperCase();
+  el.style.background = def.shirt;
+  el.style.color = readableTextColor(def.shirt);
+}
+
+// Gives a .team-box panel a look based on the actual club's kit, rather than
+// a plain flat colour - a secondary colour (from shorts, or the shirt
+// stripe colour where the kit has one) drives both the diagonal .team-box-
+// flair sash and the footer accent stripe, and clubs with a real striped
+// kit (Newcastle, Southampton, Sheff Utd...) get that reproduced as a
+// subtle background pattern (see .team-box-striped). Re-run every time you
+// switch club, so the panel's whole style changes with the team, not just
+// its base colour.
+function styleTeamBox(box, def) {
+  if (!box || !def) return;
+  const secondary = def.stripe || def.shorts || def.shirt;
+  box.style.setProperty('--team-color-2', secondary);
+  box.style.setProperty('--team-stripe', def.stripe || secondary);
+  box.classList.toggle('team-box-striped', !!def.stripe);
+}
+
 // True if two shirt colours would be hard to tell apart at a glance on the
 // pitch - plain RGB distance is cheap and good enough for this; no need for
 // a perceptual colour space just to decide whether to switch kits. Mutable
@@ -1466,7 +1616,7 @@ function shakeScreen() {
 // ============================================================
 const STATE = { MENU: 'MENU', SETUP: 'SETUP', PLAYING: 'PLAYING', PAUSED: 'PAUSED', GOAL: 'GOAL', HALFTIME: 'HALFTIME', FULLTIME: 'FULLTIME', SHOOTOUT: 'SHOOTOUT' };
 // ms despite the name. Long enough to comfortably fit the ~6s goal replay
-// clip (see REPLAY_BUFFER_MAX) plus a couple of seconds of banner hold
+// clip (see REPLAY_WINDOW_MS) plus a couple of seconds of banner hold
 // afterward - if this were shorter than the replay, the safety net in
 // scoreGoal would cut the replay off before it finished.
 const GOAL_CELEBRATION_SEC = 8000;
@@ -1515,29 +1665,88 @@ const G = {
   goalEndDir: null, // 1 or -1, which end the pending goal is at - tells the net which way to "catch" the ball
   slowMoFactor: 1,
   slowMoTimeout: null,
-  replayBuffer: [], // rolling ~1.5s of recent player/ball positions, for the goal-replay clip - see recordReplayFrame()
+  replayBuffer: [], // rolling REPLAY_WINDOW_MS of recent player/ball positions, for the goal-replay clip - see recordReplayFrame()
   replay: { active: false, frames: null, idx: 0, restoreState: null, everyOther: false, onDone: null }, // see scoreGoal/stepGoalReplay
   lastTs: 0,
   camera: { x: PITCH_LEN / 2, y: PITCH_WID / 2, zoom: CAMERA_ZOOM },
   lastTensionUpdate: 0,
   shotAim: 0, // -1 (left post) .. 1 (right post), steered while charging a penalty/free kick/practice shot
+  // The Shoot button's own drag joystick (see bindShootJoystick) - a full
+  // 2D direction, world-space (same convention as G.joystick), for aiming
+  // an open-play shot exactly where dragged rather than only left/right
+  // around a fixed goal-ward line. shootDragMag is how far it's currently
+  // pulled from centre, 0..1 - below SHOOT_DRAG_THRESHOLD it's treated as
+  // "didn't really aim it", falling back to the existing auto-target/1D
+  // dead-ball aim instead.
+  shootAimVec: { x: 0, y: 0 },
+  shootDragMag: 0,
 };
 
 // True whenever the human's current shot is one they can actually steer
 // (a placed dead ball), rather than an instinctive open-play strike -
-// penalties/free kicks they're taking. forPlayer defaults to G.controlled
-// (every existing call site) - the online guest's own guestSteerAim passes
-// G.controlled explicitly too, since for the guest that already means "my
-// own player" (see interpolateShadowState).
+// penalties/free kicks/corners they're taking. Corners were added so a
+// human corner-taker can pick a real aim+power delivery into the box
+// instead of it just being auto-passed to the nearest teammate like a
+// throw-in. forPlayer defaults to G.controlled (every existing call site) -
+// the online guest's own guestSteerAim passes G.controlled explicitly too,
+// since for the guest that already means "my own player" (see
+// interpolateShadowState).
 function isAimableShotSituation(forPlayer) {
   const p = forPlayer || G.controlled;
-  return !!(G.restart && p === G.restart.taker && (G.restart.kind === 'penalty' || G.restart.kind === 'freekick'));
+  return !!(G.restart && p === G.restart.taker && (G.restart.kind === 'penalty' || G.restart.kind === 'freekick' || G.restart.kind === 'corner'));
 }
+
+// A throw-in isn't shootable (see isAimableShotSituation/restartMustPass),
+// but it's still a dead ball worth steering rather than always auto-passing
+// to whatever the cone-nearest-teammate logic picks - see releasePass's
+// aim handling and THROWIN_AIM_ANGLE.
+function isAimableThrowinSituation(forPlayer) {
+  const p = forPlayer || G.controlled;
+  return !!(G.restart && p === G.restart.taker && G.restart.kind === 'throwin');
+}
+// How far either side of "straight into the pitch" a throw can be steered -
+// at aim=+-1 it's angled sharply forward/back along the touchline while
+// still landing in play; a real throw can never go backward OUT of the
+// pitch, so this deliberately stops short of a full 90 degrees.
+const THROWIN_AIM_ANGLE = Math.PI * 0.42;
 
 // The opponent (team index 1) gets an extra attribute boost on top of their
 // real team strength as difficulty rises - your own team (index 0) always
 // just plays at its real strength, whichever club you picked.
-const DIFFICULTY_OPPONENT_BOOST = { easy: 1.0, medium: 1.08, hard: 1.18, expert: 1.30, legendary: 1.45, champion: 1.55, grandmaster: 1.65, legend: 1.75 };
+const DIFFICULTY_OPPONENT_BOOST = { easy: 1.0, medium: 1.08, hard: 1.18, expert: 1.30, legendary: 1.45, champion: 1.55, grandmaster: 1.65, legend: 1.75, mythic: 1.85, invincible: 1.95 };
+
+// Real positions specialise - a striker isn't a good tackler and a
+// centre-back isn't a clinical finisher. Applied as a per-attribute
+// multiplier on top of the normal team/renown roll (see makeSquadPlayer/
+// makeCareerPlayer below), not a separate system - a poor defender can
+// still be a poor tackler, a great striker can still be an average
+// dribbler, this just biases the AVERAGE toward what's realistic for the
+// role instead of every attribute being equally likely for every position.
+// Reflexes deliberately isn't biased here - it's rolled the same for
+// everyone and only actually matters for the goalkeeper (see gkDiving/
+// gkHandling/etc.), so touching it would just quietly shift outfield
+// players' computePlayerValue average for no real reason.
+const POSITION_ATTR_BIAS = {
+  GK: { pace: 0.85, tackling: 0.7, finishing: 0.6, passing: 0.9, dribbling: 0.7, strength: 1.0 },
+  DEF: { pace: 0.95, tackling: 1.2, finishing: 0.7, passing: 0.95, dribbling: 0.85, strength: 1.15 },
+  MID: { pace: 1.0, tackling: 1.0, finishing: 0.9, passing: 1.15, dribbling: 1.05, strength: 1.0 },
+  FWD: { pace: 1.1, tackling: 0.65, finishing: 1.2, passing: 0.9, dribbling: 1.1, strength: 1.0 },
+};
+// Same pace/tackling/finishing/reflexes blend several older functions use as
+// a rough "how good is this player" figure, but with each of the three
+// biased terms divided back out by their own POSITION_ATTR_BIAS multiplier
+// first (reflexes was never biased, so it passes through as-is). Comparing
+// raw attributes straight across DIFFERENT positions (unlike sorting players
+// WITHIN one position, which stays valid either way since the same bias
+// hits everyone there equally) was systematically under-counting every
+// position - a striker's deliberately weak Tackling, a defender's
+// deliberately weak Finishing - which was quietly simulating whole squads
+// as weaker than they really are. See careerSquadStrength for where this
+// actually changes a match outcome, not just a displayed number.
+function positionNeutralAvg(cp) {
+  const bias = POSITION_ATTR_BIAS[cp.group] || POSITION_ATTR_BIAS.MID;
+  return (cp.pace / bias.pace + cp.tackling / bias.tackling + cp.finishing / bias.finishing + cp.reflexes) / 4;
+}
 
 // Shared by both the 11 starters (which have a real formation slot/home
 // position) and the bench (which don't have either until they're subbed on).
@@ -1557,11 +1766,28 @@ function makeSquadPlayer(idx, group, slot, attackDir, teamFactor) {
     noiseSeed: Math.random() * 1000,
     runTimer: rand(2, 4), // countdown to the next automatic AI attacking run
     // Individual variance around the team's real overall quality, with the
-    // opponent's additionally scaled up by the difficulty boost above.
-    pace: clamp(rand(0.9, 1.1) * teamFactor, 0.7, 1.45),
-    tackling: clamp(rand(0.85, 1.15) * teamFactor, 0.6, 1.5),
-    finishing: clamp(rand(0.85, 1.15) * teamFactor, 0.6, 1.5),
+    // opponent's additionally scaled up by the difficulty boost above -
+    // and now biased per-position (see POSITION_ATTR_BIAS) so a striker
+    // doesn't roll centre-back-grade tackling by pure chance.
+    pace: clamp(rand(0.9, 1.1) * teamFactor * (POSITION_ATTR_BIAS[group] || POSITION_ATTR_BIAS.MID).pace, 0.7, 1.45),
+    tackling: clamp(rand(0.85, 1.15) * teamFactor * (POSITION_ATTR_BIAS[group] || POSITION_ATTR_BIAS.MID).tackling, 0.6, 1.5),
+    finishing: clamp(rand(0.85, 1.15) * teamFactor * (POSITION_ATTR_BIAS[group] || POSITION_ATTR_BIAS.MID).finishing, 0.6, 1.5),
     reflexes: clamp(rand(0.85, 1.15) * teamFactor, 0.6, 1.5), // only meaningful for the goalkeeper
+    // Passing/dribbling/strength - real attributes, not just display stats
+    // (see releasePass's wobble and the tackle-chance formulas in
+    // aiTackleAttempt/tryHumanTackle/tryRemoteTackle): a low-Passing player's
+    // passes stray off target more, and a high-Dribbling/Strength ball
+    // carrier is genuinely harder to dispossess.
+    passing: clamp(rand(0.85, 1.15) * teamFactor * (POSITION_ATTR_BIAS[group] || POSITION_ATTR_BIAS.MID).passing, 0.6, 1.5),
+    dribbling: clamp(rand(0.85, 1.15) * teamFactor * (POSITION_ATTR_BIAS[group] || POSITION_ATTR_BIAS.MID).dribbling, 0.6, 1.5),
+    strength: clamp(rand(0.85, 1.15) * teamFactor * (POSITION_ATTR_BIAS[group] || POSITION_ATTR_BIAS.MID).strength, 0.6, 1.5),
+    // A real per-player attribute (not the same thing as the in-match
+    // `stamina` field below) - a high-Stamina player's fatigue drains
+    // slower over the course of a match, see drainStamina(). Deliberately
+    // NOT scaled by teamFactor: a big club's star can still be a poor
+    // engine-room runner and vice versa, so this is worth scouting for on
+    // its own merits rather than just tracking overall quality.
+    staminaRating: clamp(rand(0.6, 1.5), 0.6, 1.5),
     cardLevel: 0, // 0 = clean, 1 = yellow, 2 = sent off (red)
     sentOff: false,
     stamina: 1, // 1 = fresh, drains with sprinting/pressing over the match - see drainStamina()
@@ -1571,6 +1797,12 @@ function makeSquadPlayer(idx, group, slot, attackDir, teamFactor) {
     goals: 0, // this match only - see scoreGoal(); resets naturally since players are rebuilt each initMatch
     matchTackles: 0, // this match only - see aiTackleAttempt/tryHumanTackle
     realName: null, // only set for the human's own team, and only if that club has squad data - see assignRealNames()
+    // Generic placeholder for anyone who doesn't end up with a realName
+    // (the opponent side, and any of your own bench slots the squad list
+    // ran out of real names for) - assignRealNames overwrites this with the
+    // real player's actual known age (see REAL_PLAYER_AGE/resolvePlayerAge)
+    // wherever one's on record.
+    age: randPlayerAge(18, 35),
   };
 }
 
@@ -1602,7 +1834,13 @@ function assignRealNames(team, def) {
   for (const group of Object.keys(def.squad)) { pools[group] = shuffled(def.squad[group]); used[group] = 0; }
   for (const p of [...team.players, ...team.bench]) {
     const pool = pools[p.group];
-    if (pool && used[p.group] < pool.length) p.realName = pool[used[p.group]++];
+    if (pool && used[p.group] < pool.length) {
+      p.realName = pool[used[p.group]++];
+      // Real players get their real known age where one's on record
+      // (REAL_PLAYER_AGE) instead of makeSquadPlayer's generic placeholder
+      // roll - same lookup Career mode's own squad generation uses.
+      p.age = resolvePlayerAge(p.realName, 18, 35);
+    }
   }
 }
 
@@ -1618,7 +1856,12 @@ function buildTeam(def, attackDir, gkColor, teamIdx, skillKey, kit) {
     pressStyle: def.press || 'mid',
     players, bench, subsRemaining: MAX_SUBS,
   };
-  if (teamIdx === 0) assignRealNames(team, def);
+  // Both sides now, not just the human's own team - an AI opponent showing
+  // as "DEF 3" the whole match (subs screen included) while your own side
+  // has real names read as noticeably thinner than it needed to be, and
+  // assignRealNames already no-ops harmlessly for any club without real
+  // squad data (def.squad).
+  assignRealNames(team, def);
   return team;
 }
 
@@ -1652,10 +1895,45 @@ function outfield(team) { return team.players.filter(p => !p.isGK && !p.sentOff)
 // barely move, so they're exempt. Never fully empties - a gassed player is
 // slower, not frozen.
 const STAMINA_DRAIN = 0.5;
+// A player's real staminaRating attribute (0.6-1.5, see makeSquadPlayer)
+// scales how fast their in-match fatigue actually builds - a high-Stamina
+// engine-room runner drains at roughly 2/3 the rate of a poor one, so
+// signing for fitness genuinely pays off deep into a match, not just on
+// paper. Division, not multiplication, so a HIGHER rating means LESS drain.
+// Recovery is much slower than drain (roughly a quarter the rate) and only
+// kicks in during genuinely light activity (activityMultiplier <= 0.5, the
+// same "barely moving" tier drainStamina's callers already pass) - jogging
+// gets some fatigue back, sprinting/pressing never does.
+const STAMINA_RECOVER_RATE = 0.12;
 function drainStamina(p, dt, activityMultiplier) {
   if (p.isGK) return;
   const frac = dt / G.halfLengthSec;
-  p.stamina = clamp(p.stamina - frac * activityMultiplier * STAMINA_DRAIN, 0.2, 1);
+  if (activityMultiplier <= 0.5) {
+    const ceiling = p.staminaCeiling != null ? p.staminaCeiling : 1;
+    const before = p.stamina;
+    p.stamina = clamp(p.stamina + frac * STAMINA_RECOVER_RATE * (p.staminaRating || 1), 0.2, ceiling);
+    trackStaminaRecovery(p, p.stamina - before);
+    return;
+  }
+  const staminaMult = 1 / (p.staminaRating || 1);
+  p.stamina = clamp(p.stamina - frac * activityMultiplier * STAMINA_DRAIN * staminaMult, 0.2, 1);
+}
+
+// Recovering isn't free: every time a player's cumulative in-match recovery
+// reaches 30%, their ceiling (the most stamina they can hold from then on)
+// permanently drops 5-10% - repeatedly resting and running again wears a
+// player down over the match even with breathers, rather than letting them
+// yo-yo back to fully fresh indefinitely just by standing still a moment.
+const STAMINA_CEILING_CUT_THRESHOLD = 0.3;
+function trackStaminaRecovery(p, amount) {
+  if (amount <= 0) return;
+  p.staminaRecovered = (p.staminaRecovered || 0) + amount;
+  if (p.staminaCeiling == null) p.staminaCeiling = 1;
+  while (p.staminaRecovered >= STAMINA_CEILING_CUT_THRESHOLD) {
+    p.staminaRecovered -= STAMINA_CEILING_CUT_THRESHOLD;
+    p.staminaCeiling = clamp(p.staminaCeiling - rand(0.05, 0.1), 0.5, 1);
+    p.stamina = Math.min(p.stamina, p.staminaCeiling);
+  }
 }
 
 // ---------- Substitutions ----------
@@ -1744,30 +2022,115 @@ function updateCardIndicators() {
 // ---------- Substitutions screen (human team only - see aiAutoSub for the AI side) ----------
 let pendingSubOut = null; // the on-pitch player selected via "Sub Off", waiting for a bench pick
 
+// Same player-card look as the Career squad screens (see formatMatchPlayerRow),
+// with a live stamina bar and injury/card badge above each card - not just a
+// name in a plain list - so a substitution decision is actually informed by
+// who's actually gassed or carrying a knock right now.
+// On-pitch side is the same formation-pitch view as the Career squad screen
+// (see renderCareerLineupScreen/LINEUP_ROW_TOP/slotPositionAbbr) rather than
+// a plain list, with a live stamina bar + injury icon above each marker's
+// head instead of the bench cards' fuller status strip (no room for it at
+// this size) - reuses the same colour tiers (sub-stamina-high/mid/low).
 function renderSubsScreen() {
   const team = G.teams[0];
   document.getElementById('subs-remaining').textContent = `Substitutions remaining: ${team.subsRemaining}`;
+  const noSubsLeft = team.subsRemaining <= 0;
 
-  document.getElementById('subs-onpitch').innerHTML = team.players.map(p => {
-    const cardBadge = p.cardLevel === 1 ? ' \u{1F7E8}' : p.cardLevel === 2 ? ' \u{1F7E5}' : '';
-    const injuryBadge = p.injured ? ' \u{1FA79}' : '';
-    const selected = p === pendingSubOut ? ' sub-row-selected' : '';
-    const noSubsLeft = team.subsRemaining <= 0;
-    return `<div class="sub-row${selected}">
-      <span>${playerLabel(p)}${cardBadge}${injuryBadge}</span>
-      <button class="sub-off-btn" data-idx="${p.idx}" ${noSubsLeft ? 'disabled' : ''}>${p === pendingSubOut ? 'Selected' : 'Sub Off'}</button>
-    </div>`;
-  }).join('');
+  const pitch = document.getElementById('subs-formation-pitch');
+  pitch.innerHTML = '';
+  team.players.forEach(p => {
+    const isSelected = p === pendingSubOut;
+    const marker = document.createElement('div');
+    marker.className = 'formation-player' + (isSelected ? ' selected' : '');
+    marker.style.left = `${p.slot.y * 100}%`;
+    marker.style.top = `${LINEUP_ROW_TOP[p.slot.group]}%`;
+    marker.title = `${playerLabel(p)} - ${slotPositionName(p.slot)}`;
 
-  document.getElementById('subs-bench').innerHTML = team.bench.map((p, i) => {
-    const enabled = pendingSubOut && team.subsRemaining > 0;
-    return `<div class="sub-row">
-      <span>${playerLabel(p)} (${GROUP_LABEL[p.group] || p.group})</span>
-      <button class="sub-on-btn" data-bench="${i}" ${enabled ? '' : 'disabled'}>Bring On</button>
-    </div>`;
-  }).join('');
+    const staminaPct = Math.round(clamp(p.stamina != null ? p.stamina : 1, 0, 1) * 100);
+    const staminaTier = staminaPct > 60 ? 'high' : staminaPct > 30 ? 'mid' : 'low';
+    const status = document.createElement('div');
+    status.className = 'formation-player-status';
+    status.innerHTML = `
+      <div class="formation-player-stamina-bar"><div class="formation-player-stamina-fill sub-stamina-${staminaTier}" style="width:${staminaPct}%"></div></div>
+      ${p.injured ? '<span class="formation-player-injury-icon">\u{1FA79}</span>' : ''}
+    `;
+
+    const dot = document.createElement('div');
+    dot.className = 'formation-player-dot';
+    dot.style.setProperty('--kit-color', team.shirt);
+    dot.style.setProperty('--kit-text', readableTextColor(team.shirt));
+    dot.textContent = slotPositionAbbr(p.slot);
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'formation-player-name';
+    nameEl.textContent = playerLabel(p);
+
+    marker.appendChild(status);
+    marker.appendChild(dot);
+    marker.appendChild(nameEl);
+    marker.onclick = () => {
+      if (noSubsLeft) return;
+      pendingSubOut = isSelected ? null : p; // clicking the already-selected marker deselects, same as the lineup editor
+      renderSubsScreen();
+    };
+    pitch.appendChild(marker);
+  });
+
+  const benchEl = document.getElementById('subs-bench');
+  benchEl.innerHTML = '';
+  const canBringOn = pendingSubOut && team.subsRemaining > 0;
+  team.bench.forEach((p, i) => {
+    benchEl.appendChild(formatMatchPlayerRow(p, 'Bring On', () => {
+      substitutePlayer(team, pendingSubOut, team.bench[i]);
+      pendingSubOut = null;
+      renderSubsScreen();
+    }, { disabled: !canBringOn }));
+  });
 
   document.getElementById('subs-bench-hint').classList.toggle('hidden', !!pendingSubOut || team.subsRemaining <= 0);
+}
+
+const SUBS_AUTO_RETURN_SEC = 15;
+
+// Auto-returns you to whichever overlay sent you to the Subs page
+// (pause or halftime) if you sit on it too long deciding, rather than
+// leaving the match hanging paused indefinitely.
+function startSubsAutoTimer(returnTarget) {
+  G.subsReturnTarget = returnTarget;
+  G.subsRemaining = SUBS_AUTO_RETURN_SEC;
+  const secEl = document.getElementById('subs-timer-seconds');
+  const fillEl = document.getElementById('subs-timer-fill');
+  secEl.textContent = G.subsRemaining;
+  fillEl.style.width = '100%';
+  if (G.subsTimerInterval) clearInterval(G.subsTimerInterval);
+  G.subsTimerInterval = setInterval(() => {
+    G.subsRemaining--;
+    secEl.textContent = Math.max(G.subsRemaining, 0);
+    fillEl.style.width = `${Math.max(G.subsRemaining, 0) / SUBS_AUTO_RETURN_SEC * 100}%`;
+    if (G.subsRemaining <= 0) closeSubsScreen(true);
+  }, 1000);
+}
+
+function stopSubsAutoTimer() {
+  if (G.subsTimerInterval) { clearInterval(G.subsTimerInterval); G.subsTimerInterval = null; }
+}
+
+// auto=false: the "Back to Pause"/"Back to Half Time" button - just returns,
+// match stays exactly as paused as it was. auto=true: the 15s timer ran out
+// without you deciding - returns AND (for the pause case) resumes play
+// immediately, same as if you'd pressed Resume, rather than leaving the
+// match sat paused with nobody looking at it.
+function closeSubsScreen(auto) {
+  stopSubsAutoTimer();
+  const returnTarget = G.subsReturnTarget;
+  showScreen('match-screen');
+  if (returnTarget === 'halftime') {
+    document.getElementById('halftime-overlay').classList.remove('hidden');
+    startHalftimeInterval();
+  } else {
+    document.getElementById('pause-overlay').classList.remove('hidden');
+    if (auto) togglePause();
+  }
 }
 
 // ---------- Kickoff / restarts ----------
@@ -1948,6 +2311,12 @@ function handleRestartTaker(p, team, dt) {
       return;
     }
   }
+  if (G.restart.kind === 'goalkick') {
+    // Kicking - a big-legged keeper drives a goal kick further downfield
+    // with real pace on it; a weak-legged one barely clears the box.
+    releasePass(p, team, clamp(rand(0.55, 0.9) * (0.75 + gkKicking(p) * 0.35), 0.35, 1));
+    return;
+  }
   releasePass(p, team, rand(0.55, 0.9));
 }
 
@@ -1986,18 +2355,57 @@ function tagTeams() {
 // ============================================================
 let lastMatchSettings = null;
 
+// Every other ALL_CLUBS index in the same league as clubIdx - used to keep
+// Season's round-robin and Cup's draw scoped to one sensible division full
+// of real rivals, now that Play/Season/Cup pick from every league
+// (ALL_CLUBS) instead of just the Premier League (TEAMS).
+function sameLeagueClubIdxs(clubIdx) {
+  const league = ALL_CLUBS[clubIdx].league;
+  return ALL_CLUBS.map((c, i) => i).filter(i => i !== clubIdx && ALL_CLUBS[i].league === league);
+}
+
+// Jumps straight to the first club of the next/previous league (in
+// CAREER_LEAGUES order) rather than cycling through every club one at a
+// time - Play/Season/Cup all pick from all ~116 clubs across 6 leagues now,
+// and stepping through every single one just to get from the Premier
+// League to Serie A was a lot of taps. The existing team-prev/next arrows
+// still cycle club-by-club as before; this is a second, coarser control
+// alongside them (see the small league-arrow buttons in each team box).
+function jumpToLeagueClub(currentIdx, dir) {
+  const curLeague = ALL_CLUBS[currentIdx].league;
+  const pos = CAREER_LEAGUES.indexOf(curLeague);
+  const nextLeague = CAREER_LEAGUES[(pos + dir + CAREER_LEAGUES.length) % CAREER_LEAGUES.length];
+  return ALL_CLUBS.findIndex(c => c.league === nextLeague);
+}
+
+// The team prev/next arrows step through clubs WITHIN the current league
+// only, wrapping at that league's own start/end rather than drifting into
+// the next league - only the dedicated league arrows (jumpToLeagueClub
+// above) change league now, so switching league is always a deliberate
+// choice, not something that just happens if you cycle teams enough times.
+function cycleWithinLeague(currentIdx, dir) {
+  const league = ALL_CLUBS[currentIdx].league;
+  const clubsInLeague = ALL_CLUBS.map((c, i) => i).filter(i => ALL_CLUBS[i].league === league);
+  const pos = clubsInLeague.indexOf(currentIdx);
+  return clubsInLeague[(pos + dir + clubsInLeague.length) % clubsInLeague.length];
+}
+
 // ---------- Season mode ----------
-// A personal campaign against every other team once - not a full simulated
-// league (the other teams don't play each other), just your own record and
-// results across all the fixtures.
-let SEASON = null; // { yourIdx, skillKey, halfLenMin, opponentOrder, fixtureIdx, record, results }
+// A personal campaign against every other team once, with the rest of the
+// division racing along beside you too now - every fixture you resolve
+// also quick-sims a round of everyone else's games (see advanceLeagueRound,
+// shared with Career mode's own tableEstimate), so the League Table tab is
+// a real standings table, not just your own record.
+let SEASON = null; // { yourIdx, skillKey, halfLenMin, opponentOrder, fixtureIdx, record, results, tableEstimate, view }
 
 function startSeason(yourIdx, halfLenMin, skillKey) {
-  const opponentOrder = TEAMS.map((_, i) => i).filter(i => i !== yourIdx);
+  const opponentOrder = sameLeagueClubIdxs(yourIdx);
   SEASON = {
     yourIdx, halfLenMin, skillKey, opponentOrder, fixtureIdx: 0,
     record: { played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, points: 0 },
     results: [],
+    tableEstimate: generateLeagueTableEstimate(yourIdx, ALL_CLUBS[yourIdx].league),
+    view: 'fixtures', // 'fixtures' | 'table' - see toggleSeasonView
   };
   startSeasonMatch();
 }
@@ -2015,8 +2423,22 @@ function recordSeasonResult() {
   if (gf > ga) { r.won++; r.points += 3; }
   else if (gf === ga) { r.drawn++; r.points += 1; }
   else { r.lost++; }
-  SEASON.results.push({ oppIdx: SEASON.opponentOrder[SEASON.fixtureIdx], gf, ga });
+  const oppIdx = SEASON.opponentOrder[SEASON.fixtureIdx];
+  SEASON.results.push({ oppIdx, gf, ga });
+  advanceLeagueRound(SEASON.tableEstimate, oppIdx, gf, ga);
   SEASON.fixtureIdx++;
+}
+
+function toggleSeasonView(view) {
+  SEASON.view = view;
+  renderSeasonTable();
+}
+
+// Sorted full standings including your own row - same points/goal-
+// difference tiebreak Career's own table uses.
+function seasonStandingsRows() {
+  const you = { clubIdx: SEASON.yourIdx, points: SEASON.record.points, gd: SEASON.record.gf - SEASON.record.ga, isYou: true };
+  return [you, ...SEASON.tableEstimate].sort((a, b) => b.points - a.points || b.gd - a.gd);
 }
 
 function renderSeasonTable() {
@@ -2027,8 +2449,13 @@ function renderSeasonTable() {
     stat('Goals', `${r.gf}-${r.ga}`) + stat('Points', r.points) +
     `</div>`;
 
+  document.getElementById('btn-season-view-fixtures').classList.toggle('active', SEASON.view === 'fixtures');
+  document.getElementById('btn-season-view-table').classList.toggle('active', SEASON.view === 'table');
+  document.getElementById('season-fixtures').classList.toggle('hidden', SEASON.view !== 'fixtures');
+  document.getElementById('season-standings').classList.toggle('hidden', SEASON.view !== 'table');
+
   const rows = SEASON.opponentOrder.map((oppIdx, i) => {
-    const oppName = TEAMS[oppIdx].name;
+    const oppName = ALL_CLUBS[oppIdx].name;
     if (i < SEASON.results.length) {
       const res = SEASON.results[i];
       const badgeCls = res.gf > res.ga ? 'badge-win' : res.gf === res.ga ? 'badge-draw' : 'badge-loss';
@@ -2039,55 +2466,150 @@ function renderSeasonTable() {
   });
   document.getElementById('season-fixtures').innerHTML = `<table>${rows.join('')}</table>`;
 
+  // No reliable "Played" column - the other clubs' games are simmed in
+  // shuffled pairs each round (see advanceLeagueRound), so how many
+  // fixtures any one of them has actually had by now isn't exact - same
+  // reason Career's own table (career-table-body) only ever shows
+  // Position/Club/Points/GD too.
+  const standings = seasonStandingsRows();
+  document.getElementById('season-standings').innerHTML = `<table class="season-standings-table">
+    <tr><th>#</th><th>Club</th><th>Pts</th><th>GD</th></tr>
+    ${standings.map((row, i) => `<tr${row.isYou ? ' class="career-table-you"' : ''}>
+      <td>${i + 1}</td><td>${ALL_CLUBS[row.clubIdx].name}</td>
+      <td><b>${row.points}</b></td><td>${row.gd >= 0 ? '+' : ''}${row.gd}</td>
+    </tr>`).join('')}
+  </table>`;
+
   const seasonDone = SEASON.fixtureIdx >= SEASON.opponentOrder.length;
   document.getElementById('btn-season-next').classList.toggle('hidden', seasonDone);
+  document.getElementById('season-awards').classList.toggle('hidden', !seasonDone);
+  if (seasonDone) renderSeasonAwards(standings);
+}
+
+// A proper end-of-season moment instead of the screen just quietly running
+// out of fixtures - your final position, plus league-wide Best Attack/
+// Best Defence pulled straight from the same standings the table shows.
+function renderSeasonAwards(standings) {
+  const yourPosition = standings.findIndex(row => row.isYou) + 1;
+  const champion = standings[0];
+  // Non-you rows are spread straight from SEASON.tableEstimate (see
+  // seasonStandingsRows), so they already carry real gf/ga - only your own
+  // row needs it filled in from the record instead.
+  const withGoals = standings.map(row => row.isYou ? { ...row, gf: SEASON.record.gf, ga: SEASON.record.ga } : row);
+  const bestAttack = [...withGoals].sort((a, b) => b.gf - a.gf)[0];
+  const bestDefence = [...withGoals].sort((a, b) => a.ga - b.ga)[0];
+  const ord = n => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
+  const row = (label, value) => `<div class="season-award-row"><span>${label}</span><span>${value}</span></div>`;
+  document.getElementById('season-awards').innerHTML = `
+    <h2 class="season-awards-title">${champion.isYou ? '\u{1F3C6} Champions!' : 'Season Complete'}</h2>
+    ${row('League Winner', champion.isYou ? 'You' : ALL_CLUBS[champion.clubIdx].name)}
+    ${row('Your Final Position', ord(yourPosition))}
+    ${row('Best Attack', `${bestAttack.isYou ? 'You' : ALL_CLUBS[bestAttack.clubIdx].name} (${bestAttack.gf})`)}
+    ${row('Best Defence', `${bestDefence.isYou ? 'You' : ALL_CLUBS[bestDefence.clubIdx].name} (${bestDefence.ga} conceded)`)}
+  `;
 }
 
 // ---------- Cup mode ----------
 // Single-elimination knockout: your team plus 4 randomly-drawn opponents
-// (sorted weakest-to-strongest, so the Final tends to be the toughest game),
-// one per round. A draw after full time goes to a penalty shootout - no
-// replays, no away goals, straight knockout.
+// (sorted weakest-to-strongest, so the Final tends to be the toughest game).
+// Every round except the Final is now a two-legged tie (see
+// cupRoundIsTwoLegged) decided on aggregate, with extra time/penalties only
+// if still level after leg 2 - the Final stays a single match, same as
+// before. Both legs are still played as you controlling G.teams[0] against
+// the opponent as G.teams[1] (this engine has no path for the human to
+// control team 1), so "leg 1 away, leg 2 home" is a labelling/aggregate
+// distinction, not a literal side-swap - there's no home advantage modelled
+// anywhere else in this game either, so nothing is lost by that.
 const CUP_ROUND_NAMES = ['Round of 16', 'Quarter-Final', 'Semi-Final', 'Final'];
-let CUP = null; // { yourIdx, halfLenMin, skillKey, opponents:[idx,idx,idx,idx], round, history:[], eliminatedAt, won }
+let CUP = null; // { yourIdx, halfLenMin, skillKey, opponents:[idx,idx,idx,idx], round, leg, leg1Score, history:[], eliminatedAt, won, trophyShown }
+
+function cupIsFinal() { return CUP.round === CUP_ROUND_NAMES.length - 1; }
 
 function startCup(yourIdx, halfLenMin, skillKey) {
-  const pool = TEAMS.map((_, i) => i).filter(i => i !== yourIdx);
+  const pool = sameLeagueClubIdxs(yourIdx);
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
-  const opponents = pool.slice(0, CUP_ROUND_NAMES.length).sort((a, b) => (TEAMS[a].strength || 1) - (TEAMS[b].strength || 1));
-  CUP = { yourIdx, halfLenMin, skillKey, opponents, round: 0, history: [], eliminatedAt: null, won: false };
+  const opponents = pool.slice(0, CUP_ROUND_NAMES.length).sort((a, b) => (ALL_CLUBS[a].strength || 1) - (ALL_CLUBS[b].strength || 1));
+  CUP = { yourIdx, halfLenMin, skillKey, opponents, round: 0, leg: 1, leg1Score: null, history: [], eliminatedAt: null, won: false, trophyShown: false };
   startCupMatch();
 }
 
 function startCupMatch() {
   const oppIdx = CUP.opponents[CUP.round];
+  if (!cupIsFinal() && CUP.leg === 2) {
+    showToast(`Leg 2 - Aggregate ${CUP.leg1Score.ourScore}-${CUP.leg1Score.theirScore}`, '#eab308');
+  }
   initMatch(CUP.yourIdx, oppIdx, CUP.halfLenMin, CUP.skillKey);
   showScreen('match-screen');
 }
 
+// Whether extra time/penalties should trigger right now - leg 1 of a
+// two-legged tie never does (a leg 1 draw is just a draw, nothing's
+// decided until leg 2's aggregate), the Final and leg 2 both check whatever
+// score actually needs to be level (the single match itself, or the
+// aggregate across both legs).
+function cupNeedsExtraTime() {
+  if (!CUP) return false;
+  if (!cupIsFinal() && CUP.leg === 1) return false;
+  if (cupIsFinal()) return G.teams[0].score === G.teams[1].score;
+  const aggOurs = CUP.leg1Score.ourScore + G.teams[0].score;
+  const aggTheirs = CUP.leg1Score.theirScore + G.teams[1].score;
+  return aggOurs === aggTheirs;
+}
+
 function recordCupResult(shootoutResult) {
   const ourScore = G.teams[0].score, theirScore = G.teams[1].score;
-  const wonMatch = shootoutResult ? shootoutResult.homePens > shootoutResult.awayPens : ourScore > theirScore;
+  const oppIdx = CUP.opponents[CUP.round];
+
+  if (!cupIsFinal() && CUP.leg === 1) {
+    // Leg 1 - nothing's decided yet, just banked for leg 2's aggregate.
+    CUP.leg1Score = { ourScore, theirScore };
+    CUP.history.push({ round: CUP.round, oppIdx, leg: 1, ourScore, theirScore, agg: null, pens: null, won: null });
+    CUP.leg = 2;
+    return;
+  }
+
+  let wonMatch, aggText = null;
+  if (cupIsFinal()) {
+    wonMatch = shootoutResult ? shootoutResult.homePens > shootoutResult.awayPens : ourScore > theirScore;
+  } else {
+    const aggOurs = CUP.leg1Score.ourScore + ourScore;
+    const aggTheirs = CUP.leg1Score.theirScore + theirScore;
+    aggText = `${aggOurs}-${aggTheirs}`;
+    wonMatch = shootoutResult ? shootoutResult.homePens > shootoutResult.awayPens : aggOurs > aggTheirs;
+  }
   CUP.history.push({
-    round: CUP.round, oppIdx: CUP.opponents[CUP.round], ourScore, theirScore,
+    round: CUP.round, oppIdx, leg: cupIsFinal() ? null : 2, ourScore, theirScore, agg: aggText,
     pens: shootoutResult ? { home: shootoutResult.homePens, away: shootoutResult.awayPens } : null,
     won: wonMatch,
   });
   if (wonMatch) {
-    if (CUP.round === CUP_ROUND_NAMES.length - 1) {
+    if (cupIsFinal()) {
       CUP.won = true;
       const lt = loadLifetime();
       lt.cupsWon++;
       saveLifetime(lt);
     } else {
       CUP.round++;
+      CUP.leg = 1;
+      CUP.leg1Score = null;
     }
   } else {
     CUP.eliminatedAt = CUP.round;
   }
+}
+
+// A confetti-and-fanfare beat right after winning the Final, shown while
+// match-screen is still active (dismissed before navigating on to
+// cup-progress-screen) - see the cup-trophy-overlay HTML comment for why
+// it isn't its own .screen.
+function showCupTrophyMoment() {
+  document.getElementById('cup-trophy-club').textContent = ALL_CLUBS[CUP.yourIdx].name;
+  document.getElementById('cup-trophy-overlay').classList.remove('hidden');
+  confettiBurst(ALL_CLUBS[CUP.yourIdx].shirt, 18);
+  SFX.goal();
 }
 
 function renderCupProgress() {
@@ -2097,14 +2619,22 @@ function renderCupProgress() {
   } else if (CUP.eliminatedAt != null) {
     statusEl.innerHTML = `<div class="season-stat-row"><div class="season-stat-chip"><span class="stat-value">Out</span><span class="stat-label">${CUP_ROUND_NAMES[CUP.eliminatedAt]}</span></div></div>`;
   } else {
-    statusEl.innerHTML = `<div class="season-stat-row"><div class="season-stat-chip"><span class="stat-value">${CUP_ROUND_NAMES[CUP.round]}</span><span class="stat-label">vs ${TEAMS[CUP.opponents[CUP.round]].name}</span></div></div>`;
+    const legLabel = cupIsFinal() ? '' : ` — Leg ${CUP.leg}${CUP.leg === 2 ? ` (Agg ${CUP.leg1Score.ourScore}-${CUP.leg1Score.theirScore})` : ''}`;
+    statusEl.innerHTML = `<div class="season-stat-row"><div class="season-stat-chip"><span class="stat-value">${CUP_ROUND_NAMES[CUP.round]}</span><span class="stat-label">vs ${ALL_CLUBS[CUP.opponents[CUP.round]].name}${legLabel}</span></div></div>`;
   }
   const rows = CUP.history.map(h => {
-    const oppName = TEAMS[h.oppIdx].name;
+    const oppName = ALL_CLUBS[h.oppIdx].name;
+    const roundLabel = CUP_ROUND_NAMES[h.round] + (h.leg ? ` (Leg ${h.leg})` : '');
+    if (h.won == null) {
+      // Leg 1 of a still-in-progress two-legged tie - no result badge yet.
+      return `<tr><td>${roundLabel}</td><td>vs ${oppName}</td><td>${h.ourScore}-${h.theirScore}</td></tr>`;
+    }
     const badgeCls = h.won ? 'badge-win' : 'badge-loss';
     const letter = h.won ? 'W' : 'L';
-    const scoreText = h.pens ? `${h.ourScore}-${h.theirScore} (pens ${h.pens.home}-${h.pens.away})` : `${h.ourScore}-${h.theirScore}`;
-    return `<tr><td>${CUP_ROUND_NAMES[h.round]}</td><td>vs ${oppName}</td><td>${scoreText} <span class="fixture-badge ${badgeCls}">${letter}</span></td></tr>`;
+    const scoreText = h.pens
+      ? `${h.agg || `${h.ourScore}-${h.theirScore}`} (pens ${h.pens.home}-${h.pens.away})`
+      : (h.agg ? `${h.agg} agg` : `${h.ourScore}-${h.theirScore}`);
+    return `<tr><td>${roundLabel}</td><td>vs ${oppName}</td><td>${scoreText} <span class="fixture-badge ${badgeCls}">${letter}</span></td></tr>`;
   });
   document.getElementById('cup-rounds').innerHTML = `<table>${rows.join('')}</table>`;
   const stillIn = !CUP.won && CUP.eliminatedAt == null;
@@ -2138,9 +2668,13 @@ function generateRegenName() {
 // other save AND into non-Career modes. CAREER.worldState[clubIdx] holds
 // only the clubs actually touched so far; everything else falls back to the
 // original ALL_CLUBS[i] data untouched.
+// CAREER may be null here (advanceLeagueRound is now shared with Season
+// mode too, which has no career world-state at all) - falls back straight
+// to the base ALL_CLUBS data in that case, same as any club career hasn't
+// touched yet.
 function effectiveClub(clubIdx) {
   const base = ALL_CLUBS[clubIdx];
-  const w = CAREER.worldState && CAREER.worldState[clubIdx];
+  const w = CAREER && CAREER.worldState && CAREER.worldState[clubIdx];
   if (!w) return base;
   return { ...base, strength: clamp((base.strength || 1) + w.strengthDelta, 0.55, 1.4), squad: w.squad };
 }
@@ -2263,29 +2797,115 @@ function computeClubBudget(def) {
   return Math.round((50 + t * 250) * (LEAGUE_BUDGET_MULT[def.league] || 1));
 }
 
-// attrLevel is roughly the same 0.6-1.5 range makeSquadPlayer already rolls
-// (teamFactor-scaled for an established pro, a flat mid-range roll for a
-// freshly-generated youth prospect - see generateRegenBatch).
-// A 4th-power curve on `avg`, not a flat +£40m floor on top of a linear
+// Driven off computePlayerRatings' Overall (1-99, position-aware) rather
+// than a raw 4-attribute average. It used to be (pace+tackling+finishing+
+// reflexes)/4 directly, but once POSITION_ATTR_BIAS started deliberately
+// suppressing attributes that don't belong to a position (a striker's
+// Tackling, a defender's Finishing, ...), that same raw average started
+// dragging genuinely elite players' VALUE down too - a world-class striker
+// with great pace/finishing but intentionally poor Tackling was pricing as
+// cheap, which is the "some players are much cheaper than they should be"
+// bug. Overall already blends the RIGHT stats for whatever position a
+// player actually plays (six-stat outfield blend, or the five GK stats for
+// a keeper - see computePlayerRatings), so it doesn't have this problem.
+// A cubed curve on Overall/99, not a flat +£40m floor on top of a linear
 // scale - real transfer fees aren't linear in ability, the very best command
 // a huge premium while an average pro is worth a fraction of that, and a
-// fringe/bench-tier player is worth next to nothing. avg~0.6 (weak) lands
-// around a few million, ~1.0 (solid starter) around £50m, ~1.4 (world
-// class) into £150-200m+ territory - roughly the real spread.
+// fringe/bench-tier player is worth next to nothing. A 4th-power curve (an
+// earlier version) was too aggressive: nearly every regular starter got
+// pushed toward the top - wildly overpriced stars (£200m+) and everyday
+// squad players compressed down near-worthless. This spreads it into a more
+// believable range: ~£3-8m for a fringe player, ~£25-40m for a solid
+// regular, ~£90-120m only for a genuinely maxed-out player, nothing above
+// £200m regardless.
 function computePlayerValue(cp) {
-  const avg = (cp.pace + cp.tackling + cp.finishing + cp.reflexes) / 4;
+  const overall = computePlayerRatings(cp).overall;
   const ageFactor = cp.age < 21 ? 0.8 : cp.age <= 29 ? 1.2 : cp.age <= 33 ? 0.9 : 0.5;
-  // ^4 (an earlier version of this curve) was too aggressive: `avg` sits
-  // close to its 1.5 ceiling for most first-choice players at a decent club
-  // (teamFactor*renownFactor alone can exceed 1.5 before the per-attribute
-  // roll even applies), so nearly every regular starter got pushed toward
-  // the top of the curve - wildly overpriced stars (£200m+) and, by
-  // comparison, everyday squad players compressed down near-worthless.
-  // ^3 with a lower multiplier and a hard cap spreads that out into a more
-  // believable range: ~£3-8m for a fringe player, ~£25-40m for a solid
-  // regular, ~£90-120m only for a genuinely maxed-out player, nothing above
-  // £200m regardless.
-  return clamp(Math.round(Math.pow(avg, 3) * 30 * ageFactor), 2, 200);
+  return clamp(Math.round(Math.pow(overall / 99, 3) * 85 * ageFactor), 2, 200);
+}
+
+// Converts the game's internal 0.6-1.5 attribute scale to a FIFA/FC-style
+// 1-99 rating. A single power-curve doesn't track how real card ratings
+// actually feel (a typical pro isn't halfway between 1 and 99), so this is a
+// piecewise-linear ramp through hand-picked anchor points instead - a weak
+// fringe player lands in the 40s, a solid regular around 70, and a real
+// star (avg ~1.35-1.4, matching what RENOWN_OVERRIDE and a top club's best
+// XI slot actually combine to roll - see renownFactor) lands high-80s to
+// low-90s, exactly the band asked for. Only 1.5 (the hard ceiling, now
+// essentially unreachable without an unlucky/lucky attribute roll on top
+// of an already-elite renown+team combo) reaches the high 90s.
+const OVERALL_RATING_ANCHORS = [[0.6, 40], [0.85, 58], [1.0, 70], [1.15, 80], [1.3, 87], [1.4, 91], [1.5, 96]];
+function attrToRating(avg) {
+  const pts = OVERALL_RATING_ANCHORS;
+  if (avg <= pts[0][0]) return pts[0][1];
+  if (avg >= pts[pts.length - 1][0]) return pts[pts.length - 1][1];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x0, y0] = pts[i], [x1, y1] = pts[i + 1];
+    if (avg >= x0 && avg <= x1) return Math.round(lerp(y0, y1, (avg - x0) / (x1 - x0)));
+  }
+  return pts[pts.length - 1][1];
+}
+// A tiny deterministic pseudo-random offset, seeded off the player's own id
+// (stable across renders - the same player always shows the same sub-stats,
+// rather than them flickering to new numbers every time the card redraws).
+function seededJitter(seed, spread) {
+  const x = Math.sin(seed * 12.9898) * 43758.5453;
+  return (x - Math.floor(x) - 0.5) * 2 * spread;
+}
+// Raw-scale (same 0.6-1.5 range as pace/tackling/etc, no attrToRating/jitter)
+// goalkeeper blends - the SAME formulas computePlayerRatings below turns
+// into the Diving/Handling/Kicking/Positioning display stats, but usable
+// directly in match sim code (see checkGoalkeeperSmother/resolveGoalAttempt/
+// handleRestartTaker/goalkeeperTarget) the same way gk.reflexes already was.
+// One shared definition so what's shown on the card and what actually
+// happens on the pitch can never drift apart.
+function gkDiving(gk) { return gk.reflexes * 0.65 + gk.pace * 0.35; }
+function gkHandling(gk) { return gk.reflexes * 0.6 + gk.strength * 0.4; }
+function gkKicking(gk) { return (gk.passing != null ? gk.passing : gk.finishing) * 0.6 + gk.strength * 0.4; }
+function gkPositioning(gk) { return gk.tackling * 0.5 + gk.reflexes * 0.5; }
+
+// The six FIFA/FC-style sub-ratings plus an Overall - blended from the
+// game's real attributes (each of these actually drives gameplay, see
+// releasePass's wobble and the tackle-chance formulas), not invented purely
+// for display. Passing/Dribbling/Strength lean on a blend of the closest
+// real attributes since there's no single 1:1 source stat for them.
+// Goalkeepers get their own FC-style set instead (Diving/Handling/Kicking/
+// Reflexes/Positioning) - the outfield six don't mean anything for a GK
+// (nobody's scouting a keeper's Dribbling), and every one of these five
+// actually drives something distinct on the pitch too (see the gk* helpers
+// above and where they're used in the match sim), not just shown for show.
+function computePlayerRatings(cp) {
+  // cp.id is a persistent career player's stable identity - a live MATCH
+  // player object (see makeSquadPlayer) doesn't have one, only .idx, but
+  // still has every attribute this needs, so it works fine here too (e.g.
+  // the Subs screen reusing this same rating/card display - see
+  // formatMatchPlayerRow) as long as the seed falls back sensibly instead
+  // of multiplying against undefined and turning every rating into NaN.
+  const seed = cp.id != null ? cp.id : cp.idx || 0;
+  const clamp99 = v => clamp(Math.round(v), 1, 99);
+  // Stamina is shown alongside the core stats either way (it's a real,
+  // scouting-relevant attribute - see drainStamina) but deliberately left
+  // out of Overall, which stays anchored to footballing ability.
+  const stamina = clamp99(attrToRating(cp.staminaRating != null ? cp.staminaRating : 1) + seededJitter(seed * 8.5, 3));
+
+  if (cp.group === 'GK') {
+    const reflexes = attrToRating(cp.reflexes) + seededJitter(seed * 1.1, 2);
+    const diving = attrToRating(gkDiving(cp)) + seededJitter(seed * 2.3, 2);
+    const handling = attrToRating(gkHandling(cp)) + seededJitter(seed * 3.7, 2);
+    const kicking = attrToRating(gkKicking(cp)) + seededJitter(seed * 4.9, 3);
+    const positioning = attrToRating(gkPositioning(cp)) + seededJitter(seed * 6.1, 3);
+    const overall = clamp99((diving + handling + kicking + reflexes + positioning) / 5);
+    return { overall, isGK: true, diving: clamp99(diving), handling: clamp99(handling), kicking: clamp99(kicking), reflexes: clamp99(reflexes), positioning: clamp99(positioning), stamina };
+  }
+
+  const speed = attrToRating(cp.pace) + seededJitter(seed * 1.1, 2);
+  const shooting = attrToRating(cp.finishing) + seededJitter(seed * 2.3, 2);
+  const tackling = attrToRating(cp.tackling) + seededJitter(seed * 3.7, 2);
+  const passing = attrToRating(cp.passing != null ? cp.passing : (cp.finishing + cp.tackling) / 2) + seededJitter(seed * 4.9, 3);
+  const dribbling = attrToRating(cp.dribbling != null ? cp.dribbling : (cp.pace + cp.finishing) / 2) + seededJitter(seed * 6.1, 3);
+  const strength = attrToRating(cp.strength != null ? cp.strength : (cp.tackling + cp.reflexes) / 2) + seededJitter(seed * 7.3, 3);
+  const overall = clamp99((speed + shooting + passing + dribbling + tackling + strength) / 6);
+  return { overall, isGK: false, speed: clamp99(speed), shooting: clamp99(shooting), passing: clamp99(passing), dribbling: clamp99(dribbling), tackling: clamp99(tackling), strength: clamp99(strength), stamina };
 }
 
 // A season's wages as a fraction of transfer value - real wage-to-value
@@ -2335,6 +2955,22 @@ function reapplyRealAges(data) {
         if (cp[attr] < floor) cp[attr] = clamp(floor + rand(0, 0.15), floor, 1.5);
       });
     }
+    // Passing/dribbling/strength didn't exist before - backfill an older
+    // save's players with values in line with their existing overall
+    // quality (plus a little individual spread) rather than a flat default,
+    // so someone who was already a good player doesn't suddenly show up
+    // with a below-average Passing rating out of nowhere.
+    if (cp.passing == null || cp.dribbling == null || cp.strength == null) {
+      const base = (cp.pace + cp.tackling + cp.finishing + cp.reflexes) / 4;
+      if (cp.passing == null) cp.passing = clamp(base + rand(-0.1, 0.1), 0.6, 1.5);
+      if (cp.dribbling == null) cp.dribbling = clamp(base + rand(-0.1, 0.1), 0.6, 1.5);
+      if (cp.strength == null) cp.strength = clamp(base + rand(-0.1, 0.1), 0.6, 1.5);
+    }
+    // Stamina is deliberately NOT derived from overall quality (see the
+    // makeCareerPlayer comment - it's an independent trait), so an older
+    // save without it gets a fresh independent roll rather than a
+    // quality-linked backfill.
+    if (cp.staminaRating == null) cp.staminaRating = clamp(rand(0.6, 1.5), 0.6, 1.5);
     cp.value = computePlayerValue(cp); // always refreshed, not just on an age correction - see comment above
     cp.wage = computePlayerWage(cp);
     if (cp.contractYears == null) cp.contractYears = Math.floor(rand(cp.age < 24 ? 3 : 1, cp.age < 24 ? 6 : 4)); // self-heal an older save from before contracts existed
@@ -2638,14 +3274,19 @@ const REAL_PLAYER_AGE = {
   'Willi Orbán': 32, 'Xaver Schlager': 27, 'Loïs Openda': 25,
   // Eintracht Frankfurt
   'Kevin Trapp': 35,
+  'Michael Zetterer': 31, 'Kaua Santos': 23, 'Robin Koch': 30, 'Arthur Theate': 26, 'Nathaniel Brown': 23, 'Aurélio Buta': 29, 'Rasmus Kristensen': 29, 'Hugo Larsson': 22, 'Can Uzun': 20, 'Ellyes Skhiri': 31, 'Fares Chaibi': 23, 'Jonathan Burkardt': 26, 'Ansgar Knauff': 24, 'Michy Batshuayi': 32,
   // VfB Stuttgart
   'Deniz Undav': 28,
+  'Alexander Nübel': 29, 'Fabian Bredlow': 31, 'Dennis Seimen': 20, 'Jeff Chabot': 28, 'Ramon Hendriks': 25, 'Josha Vagnoman': 25, 'Julian Chabot': 28, 'Jamie Leweling': 25, 'Angelo Stiller': 25, 'Atakan Karazor': 29, 'Chris Führich': 28, 'Jeremy Sarmiento': 24, 'Ermedin Demirović': 28, 'Tiago Tomás': 24, 'Nick Woltemade': 24,
   // SC Freiburg
   'Vincenzo Grifo': 32, 'Ritsu Doan': 27,
+  'Noah Atubolu': 24, 'Florian Müller': 28, 'Benjamin Uphoff': 33, 'Kiliann Sildillia': 24, 'Matthias Ginter': 32, 'Max Rosenfelder': 23, 'Philipp Lienhart': 30, 'Merveille Biankadi': 31, 'Merlin Röhl': 24, 'Yannik Keitel': 26, 'Junior Adamu': 25, 'Michael Gregoritsch': 32, 'Igor Matanović': 23,
   // Mainz 05
   'Robin Zentner': 30, 'Nadiem Amiri': 28,
+  'Finn Dahmen': 28, 'Lasse Rieß': 25, 'Andreas Hanche-Olsen': 29, 'Stefan Bell': 34, 'Anthony Caci': 29, 'Maxim Leitsch': 28, 'Danny da Costa': 33, 'Jae-sung Lee': 34, 'Dominik Kohr': 32, 'Nelson Weiper': 21, 'Silas Katompa Mvumpa': 27, 'Kaishu Sano': 25, 'Paul Nebel': 23, 'Marlon Mustapha': 25,
   // Borussia Mönchengladbach
   'Rocco Reitz': 23,
+  'Moritz Nicolas': 28, 'Jonas Omlin': 32, 'Jan Olschowsky': 24, 'Ko Itakura': 29, 'Marvin Friedrich': 30, 'Joe Scally': 23, 'Fabio Chiarodia': 21, 'Luca Netz': 23, 'Kevin Stöger': 32, 'Franck Honorat': 30, 'Julian Weigl': 30, 'Robin Hack': 27, 'Tim Kleindienst': 30, 'Nathan Ngoumou': 26, 'Grant-Leon Ranos': 23, 'Haris Tabaković': 32,
   // VfL Wolfsburg
   'Maximilian Arnold': 31,
   // Union Berlin
@@ -2688,39 +3329,60 @@ function resolvePlayerAge(name, min, max) {
 // is used as a rough stand-in for real-world renown - a club's headline
 // names get a genuine value premium over their own bench, rather than every
 // squad player being rated purely off a flat club-wide strength average.
+// Range tightened from an earlier 0.75-1.3 spread: combined with teamFactor
+// (itself 0.84-1.20 across every club, see ALL_CLUBS .strength), the old
+// range let a weak club's bench player and a big club's star name multiply
+// out to the full 0.6-1.5 attribute range and clamp there - which is why
+// ratings were landing "some really high, some too low" instead of the
+// realistic FC-style spread (most pros 60-82, true 90+ rare) this is meant
+// to produce. See attrToRating's anchor table for how avg maps to Overall.
 function renownFactor(index, groupLength) {
-  if (groupLength <= 1) return 1.15;
+  if (groupLength <= 1) return 1.05;
   const t = index / (groupLength - 1); // 0 = star name, 1 = fringe/bench name
-  return 1.3 - t * 0.55; // roughly 1.3 down to 0.75
+  return 1.15 - t * 0.35; // roughly 1.15 down to 0.8
 }
 
 // Squad lists are ordered star-first, but list order here leans toward
 // established seniority rather than current real-world renown - a handful
 // of the sport's biggest current young stars aren't actually listed first
-// for their club, so renownFactor alone was rolling them as ordinary
-// mid-pack players (weak attributes, cheap value) despite being some of the
-// best players in the world right now by any current ranking (Lamine Yamal
-// at Barcelona is the clearest case - 3rd of 5 forwards listed despite
-// being arguably the club's most valuable player). Forces these straight to
-// max renown regardless of where they sit in the array. Not exhaustive -
-// a starting set for the most obvious mismatches, easy to extend by name.
+// for their club (Lamine Yamal is 3rd of 5 forwards listed at Barcelona
+// despite being arguably the club's most valuable player). Deliberately set
+// ABOVE renownFactor's own natural 1.15 ceiling, not just up to it - these
+// are meant to stand out even from another player who's already 1st-listed
+// at a similarly strong club (Jude Bellingham IS Real Madrid's 1st-listed
+// midfielder, so without this he and Dani Carvajal - Real Madrid's
+// 1st-listed defender - were landing on identical renown and could roll
+// either way on Overall, which is how Carvajal ended up occasionally
+// outrating him). Not exhaustive - a starting set for the most obvious
+// mismatches, easy to extend by name.
 const RENOWN_OVERRIDE = {
-  'Lamine Yamal': 1.3,
-  'Jamal Musiala': 1.3,
-  'Florian Wirtz': 1.3,
+  'Jude Bellingham': 1.35,
+  'Lamine Yamal': 1.35,
+  'Jamal Musiala': 1.35,
+  'Florian Wirtz': 1.35,
 };
 function resolveRenownFactor(name, index, groupLength) {
   return RENOWN_OVERRIDE[name] != null ? RENOWN_OVERRIDE[name] : renownFactor(index, groupLength);
 }
 
 function makeCareerPlayer(name, group, teamFactor, age) {
+  // See POSITION_ATTR_BIAS - same per-position realism as makeSquadPlayer
+  // (a striker shouldn't roll centre-back-grade tackling), applied here too
+  // since career squads are generated through this function instead.
+  const bias = POSITION_ATTR_BIAS[group] || POSITION_ATTR_BIAS.MID;
   const cp = {
     id: careerNextPlayerId++,
     name, group, age,
-    pace: clamp(rand(0.85, 1.15) * teamFactor, 0.6, 1.5),
-    tackling: clamp(rand(0.85, 1.15) * teamFactor, 0.6, 1.5),
-    finishing: clamp(rand(0.85, 1.15) * teamFactor, 0.6, 1.5),
+    pace: clamp(rand(0.85, 1.15) * teamFactor * bias.pace, 0.6, 1.5),
+    tackling: clamp(rand(0.85, 1.15) * teamFactor * bias.tackling, 0.6, 1.5),
+    finishing: clamp(rand(0.85, 1.15) * teamFactor * bias.finishing, 0.6, 1.5),
     reflexes: clamp(rand(0.85, 1.15) * teamFactor, 0.6, 1.5),
+    passing: clamp(rand(0.85, 1.15) * teamFactor * bias.passing, 0.6, 1.5),
+    dribbling: clamp(rand(0.85, 1.15) * teamFactor * bias.dribbling, 0.6, 1.5),
+    strength: clamp(rand(0.85, 1.15) * teamFactor * bias.strength, 0.6, 1.5),
+    // Not teamFactor-scaled - see the makeSquadPlayer comment on the same
+    // field, same reasoning applies to career players.
+    staminaRating: clamp(rand(0.6, 1.5), 0.6, 1.5),
   };
   const avg = (cp.pace + cp.tackling + cp.finishing + cp.reflexes) / 4;
   cp.potential = age < 24 ? clamp(avg + rand(0.05, 0.3), avg, 1.5) : avg;
@@ -2804,6 +3466,830 @@ function updateMenuContinueCareerCard() {
   };
 }
 
+// ============================================================
+// Main menu mode browser - one full-screen themed page per mode, browsed by
+// arrow keys/swipe rather than a grid of buttons (see index.html's
+// #mode-browser-track). Each page's actual "enter this mode" action is
+// exactly what its old main-menu button used to do - see selectModePage.
+// ============================================================
+let modeBrowserIdx = 0;
+let modeTipTimer = null;
+let modeTipIdx = 0;
+
+const MODE_PAGES = [
+  {
+    key: 'play', screen: 'setup-screen',
+    tips: [
+      'Ranks run from Bronze all the way up to the brand new Invincible tier - each one plays sharper and closes you down harder.',
+      "Push into the final third and your whole team gets a pace boost - defend your own and you get a tackling boost instead.",
+      'Rain skids the ball further but adds wobble to every pass - the best passers still hold up best in the wet.',
+      'Use the small league arrows next to each team box to jump straight to a division instead of cycling every club one by one.',
+    ],
+  },
+  {
+    key: 'season', screen: 'season-setup-screen',
+    tips: [
+      "The league table simulates round-by-round as you play, using your own real result for your own fixture.",
+      'Momentum swings after a goal - score early and the next few minutes get a little easier.',
+      "Every player now has a 1-99 rating and six sub-stats - check a signing's numbers before you rely on them.",
+      'A wet pitch adds pass wobble on top of whatever your passers can already handle - watch the weather.',
+    ],
+  },
+  {
+    key: 'cup', screen: 'cup-setup-screen',
+    tips: [
+      'Penalty shootouts are close to a real coin flip - just a small nudge toward the stronger side, nothing more.',
+      'Corners can now be aimed and shot straight at goal, not just auto-crossed to the nearest teammate.',
+      'A pressing defender can actually catch a dribble now instead of just trailing behind you forever.',
+      'Momentum swings hard in a one-off tie - concede early and the pressure is real for the rest of the match.',
+    ],
+  },
+  {
+    key: 'career',
+    onSelect: () => { renderCareerSlotsScreen(); showScreen('career-slots-screen'); },
+    tips: [
+      'Transfers are a real negotiation now - agree a fee, then haggle over wages and contract length separately.',
+      'Every player has an independent Stamina rating - a big name can still be a poor fitness prospect.',
+      'Contracts run down every season - renew a player before it hits zero or they leave for nothing.',
+      'Elite young prospects are priced and rated to match real scouting reports, not just squad-list position.',
+    ],
+  },
+  {
+    key: 'online', screen: 'online-menu-screen',
+    tips: [
+      'A dropped connection mid-match now tries to reconnect automatically before giving up for good.',
+      'Quick Match skips the room code entirely - it pairs you with whoever else is searching right now.',
+      'Each side picks their own club and league independently before kickoff.',
+      'Still want a code with a friend? Host and Join work exactly like before, right alongside Quick Match.',
+    ],
+  },
+];
+
+// ---------- Mode page abstract background lines ----------
+// A handful of large, soft, randomised curved strokes (in the page's own
+// --accent colour via CSS) sat behind the illustrated scenes - a gentle
+// ambient backdrop rather than a literal texture. The drifting/rotating is
+// pure CSS (see .mode-abstract-bg/@keyframes mode-abstract-flow); this just
+// builds the underlying paths once, oversized and looping past the visible
+// edges (viewBox bleeds beyond 0..520) so the slow drift never reveals a
+// hard edge or a repeat seam.
+const ABSTRACT_LINE_COUNT = 4;
+function renderModeAbstractLines(container) {
+  if (!container) return;
+  const paths = [];
+  for (let i = 0; i < ABSTRACT_LINE_COUNT; i++) {
+    const y0 = rand(-80, 600), y1 = rand(-80, 600), y2 = rand(-80, 600);
+    const cx1 = rand(50, 280), cx2 = rand(240, 470);
+    const width = (2.5 + i * 1.3).toFixed(1);
+    paths.push(`<path d="M -100 ${y0.toFixed(0)} C ${cx1.toFixed(0)} ${y1.toFixed(0)}, ${cx2.toFixed(0)} ${y2.toFixed(0)}, 620 ${rand(-80, 600).toFixed(0)}" stroke-width="${width}" opacity="${(0.5 - i * 0.09).toFixed(2)}" />`);
+  }
+  container.innerHTML = `<svg viewBox="0 0 520 520" preserveAspectRatio="none">${paths.join('')}</svg>`;
+}
+
+// Portraits are drawn once (static art, not an animated scene) using the
+// game's own retro player-sprite renderer (drawPlayerSprite, the same
+// function that draws every on-pitch player) at a larger scale, in real
+// club kit colours pulled from ALL_CLUBS - no photo assets needed or used.
+// Internal draw-buffer resolution only (crispness at any DPI) - the actual
+// displayed size is fully responsive, driven by CSS (.mode-collage canvas's
+// width:100% + aspect-ratio, matching this same W:H ratio), so the strip
+// can freely resize across breakpoints with zero stretch/distortion.
+const COLLAGE_TILE_W = 190, COLLAGE_TILE_H = 270, COLLAGE_SPRITE_SCALE = 8.4, COLLAGE_TILE_COUNT = 14;
+function renderModeCollage(container) {
+  if (!container) return;
+  container.innerHTML = '';
+  const dpr = window.devicePixelRatio || 1;
+  for (let i = 0; i < COLLAGE_TILE_COUNT; i++) {
+    const canvas = document.createElement('canvas');
+    canvas.width = COLLAGE_TILE_W * dpr;
+    canvas.height = COLLAGE_TILE_H * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr * COLLAGE_SPRITE_SCALE, dpr * COLLAGE_SPRITE_SCALE);
+    const club = ALL_CLUBS[Math.floor(Math.random() * ALL_CLUBS.length)];
+    const skinTone = SKIN_TONES[Math.floor(Math.random() * SKIN_TONES.length)];
+    const hairColor = HAIR_COLORS[Math.floor(Math.random() * HAIR_COLORS.length)];
+    const stridePhase = Math.random() < 0.5 ? null : rand(0, Math.PI * 2);
+    const cx = COLLAGE_TILE_W / (2 * COLLAGE_SPRITE_SCALE);
+    const cy = COLLAGE_TILE_H / (2 * COLLAGE_SPRITE_SCALE) + 2;
+    drawPlayerSprite(ctx, cx, cy, club.shirt, club.shorts, false, stridePhase, skinTone, hairColor, club.stripe);
+    container.appendChild(canvas);
+  }
+}
+
+// ---------- Mode page background scenes ----------
+// A moving, illustrated alternative to a single flat icon - built from the
+// same sprite/shape primitives as the rest of the game (drawPlayerSprite,
+// drawRegularPolygon for the ball/stars/formation), not photos. Each mode
+// has TWO distinct scene designs (not just the same layout re-rolled with
+// different colours) - see MODE_SCENE_VARIANTS - so the background genuinely
+// cycles between different compositions, not just different players.
+// Everything is drawn once per layer (MODE_SCENE_LAYERS canvases per page);
+// the drifting/fading is pure CSS (see .mode-scene-layer/@keyframes
+// mode-scene-flow) so nothing here needs to re-render per frame.
+const MODE_SCENE_LAYERS = 3;
+const SCENE_W = 520, SCENE_H = 520;
+const MODE_SCENE_ANIM_SEC = 26; // must match the CSS animation-duration
+
+function randomClub() { return ALL_CLUBS[Math.floor(Math.random() * ALL_CLUBS.length)]; }
+function randomSkinTone() { return SKIN_TONES[Math.floor(Math.random() * SKIN_TONES.length)]; }
+function randomHairColor() { return HAIR_COLORS[Math.floor(Math.random() * HAIR_COLORS.length)]; }
+
+// Places one drawPlayerSprite (whose own coordinate space is tiny, roughly
+// -5..5 units) at (x,y) in scene-space at a given pixel scale. clubOverride
+// lets a scene put two players in the SAME kit (e.g. a "vs" face-off between
+// two different clubs, chosen once by the caller) instead of always random.
+function placeScenePlayer(ctx, x, y, scale, stridePhase, clubOverride) {
+  const club = clubOverride || randomClub();
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  drawPlayerSprite(ctx, 0, 0, club.shirt, club.shorts, false, stridePhase, randomSkinTone(), randomHairColor(), club.stripe);
+  ctx.restore();
+}
+
+function drawSceneBall(ctx, x, y, r) {
+  ctx.save();
+  ctx.fillStyle = '#f2f2f2';
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+  ctx.lineWidth = Math.max(1, r * 0.05);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(20,20,20,0.85)';
+  drawRegularPolygon(ctx, x, y, r * 0.42, 5, -Math.PI / 2);
+  ctx.restore();
+}
+
+// A packed stadium crowd - a band of small alternating-tone blocks, same
+// idea as the in-match crowd rendering, just simplified for a small scene.
+function drawSceneCrowd(ctx, x, y, w, h, rows) {
+  const tones = ['rgba(255,255,255,0.09)', 'rgba(255,255,255,0.16)', 'rgba(255,255,255,0.06)', 'rgba(255,255,255,0.12)'];
+  const cols = Math.max(1, Math.round(w / 11));
+  const colW = w / cols, rowH = h / rows;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      ctx.fillStyle = tones[(r * 7 + c * 3) % tones.length];
+      ctx.fillRect(x + c * colW, y + r * rowH, colW - 1.5, rowH - 1.5);
+    }
+  }
+}
+
+// A soft warm floodlight glow, same idea as the real match's drawFloodlights.
+function drawSceneFloodlight(ctx, x, y, radius) {
+  ctx.save();
+  const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
+  glow.addColorStop(0, 'rgba(255,244,214,0.32)');
+  glow.addColorStop(1, 'rgba(255,244,214,0)');
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, SCENE_W, SCENE_H);
+  ctx.restore();
+}
+
+// A diagonal mown-grass stripe band, clipped to a rect - same idea as the
+// real pitch texture, just for a scene's own patch of grass.
+function drawSceneGrass(ctx, x, y, w, h) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  ctx.fillStyle = 'rgba(0,0,0,0.12)';
+  ctx.fillRect(x, y, w, h);
+  const stripeW = 26;
+  let i = 0;
+  for (let sx = x - h; sx < x + w + h; sx += stripeW) {
+    ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+    ctx.beginPath();
+    ctx.moveTo(sx, y + h);
+    ctx.lineTo(sx + h, y);
+    ctx.lineTo(sx + h + stripeW, y);
+    ctx.lineTo(sx + stripeW, y + h);
+    ctx.closePath();
+    ctx.fill();
+    i++;
+  }
+  ctx.restore();
+}
+
+// ---------- Kick-Off ----------
+// A: close-up goal mouth - proper straight-grid net (each strand runs
+// top-to-bottom at its OWN x, never converging on one point - an earlier
+// version curved every vertical strand toward a single spot, which read as
+// a broken/warped net), side netting for a bit of real depth, a corner
+// flag, crowd behind the bar, floodlight glow, two players and the ball.
+function drawKickoffSceneGoal(ctx) {
+  ctx.clearRect(0, 0, SCENE_W, SCENE_H);
+  drawSceneFloodlight(ctx, 260, 40, 260);
+  drawSceneCrowd(ctx, 40, 30, 440, 26, 3);
+  drawSceneGrass(ctx, 40, 380, 440, 100);
+  const fx0 = 70, fx1 = 450, fy0 = 70, fy1 = 280;
+  // side netting - simple trapezoids flaring out behind each post, just
+  // enough to suggest the net has real depth rather than being a flat backdrop
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  ctx.beginPath(); ctx.moveTo(fx0, fy0); ctx.lineTo(fx0 - 22, fy0 + 14); ctx.lineTo(fx0 - 22, fy1 - 14); ctx.lineTo(fx0, fy1); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(fx1, fy0); ctx.lineTo(fx1 + 22, fy0 + 14); ctx.lineTo(fx1 + 22, fy1 - 14); ctx.lineTo(fx1, fy1); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  ctx.lineWidth = 7;
+  ctx.strokeRect(fx0, fy0, fx1 - fx0, fy1 - fy0);
+  // net - a plain straight grid, exactly the same shape convention as the
+  // real in-match goal net (see drawPitchMarkings) so it always reads as a
+  // normal net rather than anything warped
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  ctx.lineWidth = 1;
+  for (let x = fx0; x <= fx1; x += 24) { ctx.beginPath(); ctx.moveTo(x, fy0); ctx.lineTo(x, fy1); ctx.stroke(); }
+  for (let y = fy0; y <= fy1; y += 22) { ctx.beginPath(); ctx.moveTo(fx0, y); ctx.lineTo(fx1, y); ctx.stroke(); }
+  placeScenePlayer(ctx, 195, 335, 11.5, rand(0, Math.PI * 2));
+  placeScenePlayer(ctx, 335, 375, 11.5, rand(0, Math.PI * 2));
+  // a puff of dust at the ball's contact point and a couple of fading
+  // "just moved" ghost circles for a sense of motion
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  [[300, 312, 6], [285, 316, 4]].forEach(([gx, gy, gr]) => { ctx.beginPath(); ctx.arc(gx, gy, gr, 0, Math.PI * 2); ctx.fill(); });
+  drawSceneBall(ctx, 260, 300, 21);
+  ctx.fillStyle = 'rgba(120,90,50,0.35)';
+  [0, 1, 2].forEach((i) => { ctx.beginPath(); ctx.arc(255 + i * 6, 322 + i * 2, 3 - i * 0.6, 0, Math.PI * 2); ctx.fill(); });
+}
+// B: overhead kickoff formation - full pitch markings both ends, corner
+// arcs, a referee, attacking-direction arrows for each club, two clubs
+// squared up over the ball at the centre spot, crowd top and bottom.
+function drawKickoffSceneFormation(ctx) {
+  ctx.clearRect(0, 0, SCENE_W, SCENE_H);
+  drawSceneGrass(ctx, 40, 60, 440, 400);
+  drawSceneCrowd(ctx, 40, 20, 440, 24, 2);
+  drawSceneCrowd(ctx, 40, 480, 440, 24, 2);
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(40, 60, 440, 400);
+  ctx.beginPath(); ctx.moveTo(40, 260); ctx.lineTo(480, 260); ctx.stroke();
+  ctx.beginPath(); ctx.arc(260, 260, 55, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeRect(190, 60, 140, 18);
+  ctx.strokeRect(190, 422, 140, 18);
+  ctx.strokeRect(150, 60, 220, 46);
+  ctx.strokeRect(150, 394, 220, 46);
+  ctx.lineWidth = 2;
+  [[40, 60], [480, 60], [40, 460], [480, 460]].forEach(([x, y]) => {
+    ctx.beginPath();
+    const startAngle = x === 40 ? (y === 60 ? 0 : -Math.PI / 2) : (y === 60 ? Math.PI / 2 : Math.PI);
+    ctx.arc(x, y, 14, startAngle, startAngle + Math.PI / 2);
+    ctx.stroke();
+  });
+  // attacking-direction arrows, one either side, pointing at the opposite goal
+  const drawArrow = (x, y, dir) => {
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x, y - 16 * dir); ctx.lineTo(x, y + 16 * dir); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x - 5, y + 8 * dir); ctx.lineTo(x, y + 16 * dir); ctx.lineTo(x + 5, y + 8 * dir); ctx.stroke();
+  };
+  drawArrow(110, 340, -1);
+  drawArrow(410, 180, 1);
+  const clubA = randomClub(), clubB = randomClub();
+  placeScenePlayer(ctx, 230, 230, 10, null, clubA);
+  placeScenePlayer(ctx, 290, 290, 10, null, clubB);
+  // referee, off to one side
+  placeScenePlayer(ctx, 260, 350, 8, null, { shirt: '#1a1a1a', shorts: '#1a1a1a' });
+  drawSceneBall(ctx, 260, 260, 16);
+}
+
+// ---------- Season ----------
+// A: league table - header row, position numbers, club-colour chips, a
+// movement indicator (up/down/level) per row, points column, gold/silver/
+// bronze leaders, a small trophy for the title spot.
+function drawSeasonSceneTable(ctx) {
+  ctx.clearRect(0, 0, SCENE_W, SCENE_H);
+  const rows = 7, rowH = 32, top = 106, left = 70, w = 380;
+  const rankColors = ['rgba(250,204,21,0.75)', 'rgba(203,213,225,0.6)', 'rgba(205,127,50,0.6)'];
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.fillRect(left, top - 24, w, 20);
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.font = 'bold 10px sans-serif';
+  ['#', 'CLUB', 'P', 'GD', 'PTS'].forEach((label, i) => {
+    ctx.fillText(label, left + [10, 60, w - 150, w - 105, w - 55][i], top - 10);
+  });
+  for (let i = 0; i < rows; i++) {
+    const club = randomClub();
+    const y = top + i * rowH;
+    ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.05)';
+    ctx.fillRect(left, y, w, rowH - 4);
+    ctx.fillStyle = rankColors[i] || 'rgba(255,255,255,0.4)';
+    ctx.fillRect(left + 6, y + 4, 20, rowH - 12);
+    ctx.fillStyle = club.shirt;
+    ctx.fillRect(left + 36, y + (rowH - 4) / 2 - 8, 16, 16);
+    ctx.fillStyle = 'rgba(255,255,255,0.32)';
+    ctx.fillRect(left + 62, y + (rowH - 4) / 2 - 3, w - 210, 6);
+    // movement indicator - a small filled triangle up/down, or a flat dash
+    ctx.fillStyle = i < 3 ? 'rgba(74,222,128,0.85)' : i > 4 ? 'rgba(248,113,113,0.85)' : 'rgba(255,255,255,0.4)';
+    const mx = left + w - 150, my = y + (rowH - 4) / 2;
+    if (i < 3) { ctx.beginPath(); ctx.moveTo(mx, my + 5); ctx.lineTo(mx + 5, my - 5); ctx.lineTo(mx + 10, my + 5); ctx.closePath(); ctx.fill(); }
+    else if (i > 4) { ctx.beginPath(); ctx.moveTo(mx, my - 5); ctx.lineTo(mx + 5, my + 5); ctx.lineTo(mx + 10, my - 5); ctx.closePath(); ctx.fill(); }
+    else ctx.fillRect(mx, my - 1, 10, 2);
+    ctx.fillStyle = i === 0 ? 'rgba(250,204,21,0.85)' : 'rgba(255,255,255,0.5)';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillText(String(94 - i * 6), left + w - 60, y + (rowH - 4) / 2 + 4);
+  }
+  // small trophy marker beside the title spot
+  ctx.fillStyle = 'rgba(250,204,21,0.8)';
+  drawRegularPolygon(ctx, left + w + 20, top + rowH / 2, 9, 5, -Math.PI / 2);
+  ctx.font = '10px sans-serif';
+}
+// B: fixture list - a matchday header tab, upcoming "vs" rows with a score
+// box, club initials, the next match highlighted, a competition badge.
+function drawSeasonSceneFixtures(ctx) {
+  ctx.clearRect(0, 0, SCENE_W, SCENE_H);
+  ctx.fillStyle = 'rgba(255,255,255,0.14)';
+  ctx.fillRect(90, 56, 340, 30);
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.font = 'bold 13px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('MATCHDAY ' + Math.floor(rand(6, 30)), 102, 76);
+  ctx.fillStyle = 'rgba(59,130,246,0.7)';
+  ctx.beginPath(); ctx.arc(410, 71, 9, 0, Math.PI * 2); ctx.fill();
+  const rows = 5, rowH = 44, top = 106, left = 90, w = 340;
+  for (let i = 0; i < rows; i++) {
+    const highlight = i === 1;
+    const y = top + i * rowH;
+    ctx.fillStyle = highlight ? 'rgba(59,130,246,0.3)' : (i % 2 === 0 ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.04)');
+    ctx.fillRect(left, y, w, rowH - 6);
+    if (highlight) { ctx.strokeStyle = 'rgba(96,165,250,0.7)'; ctx.lineWidth = 1.5; ctx.strokeRect(left, y, w, rowH - 6); }
+    const clubA = randomClub(), clubB = randomClub();
+    ctx.fillStyle = clubA.shirt;
+    ctx.fillRect(left + 12, y + (rowH - 6) / 2 - 7, 14, 14);
+    ctx.fillStyle = clubB.shirt;
+    ctx.fillRect(left + w - 26, y + (rowH - 6) / 2 - 7, 14, 14);
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.font = '9px sans-serif';
+    ctx.fillText(clubA.name.slice(0, 3).toUpperCase(), left + 30, y + (rowH - 6) / 2 + 3);
+    ctx.textAlign = 'right';
+    ctx.fillText(clubB.name.slice(0, 3).toUpperCase(), left + w - 30, y + (rowH - 6) / 2 + 3);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillText(i < 2 ? `${Math.floor(rand(0, 4))} - ${Math.floor(rand(0, 4))}` : 'vs', left + w / 2, y + (rowH - 6) / 2 + 5);
+  }
+  ctx.textAlign = 'left';
+}
+
+// ---------- Cup ----------
+// A: the trophy itself - gradient bowl, handles, ribbon, engraved plaque,
+// shine, varied confetti (rects + streamers), a spotlight cone plus glow.
+function drawCupSceneTrophy(ctx) {
+  ctx.clearRect(0, 0, SCENE_W, SCENE_H);
+  drawSceneFloodlight(ctx, 260, 220, 240);
+  // spotlight cone from directly above
+  ctx.save();
+  const cone = ctx.createLinearGradient(260, 0, 260, 260);
+  cone.addColorStop(0, 'rgba(255,255,255,0.16)');
+  cone.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = cone;
+  ctx.beginPath(); ctx.moveTo(260, 0); ctx.lineTo(160, 260); ctx.lineTo(360, 260); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  const cx = 260, baseY = 400;
+  const grad = ctx.createLinearGradient(cx - 90, 0, cx + 90, 0);
+  grad.addColorStop(0, '#8a6d1f'); grad.addColorStop(0.5, '#f5d060'); grad.addColorStop(1, '#8a6d1f');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(cx - 80, 140);
+  ctx.quadraticCurveTo(cx - 90, 260, cx - 30, 300);
+  ctx.lineTo(cx + 30, 300);
+  ctx.quadraticCurveTo(cx + 90, 260, cx + 80, 140);
+  ctx.closePath(); ctx.fill();
+  ctx.lineWidth = 16; ctx.strokeStyle = grad;
+  ctx.beginPath(); ctx.arc(cx - 95, 190, 34, Math.PI * 0.3, Math.PI * 1.5); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx + 95, 190, 34, Math.PI * 1.5, Math.PI * 1.7); ctx.stroke();
+  // ribbon draped across the bowl
+  ctx.fillStyle = 'rgba(220,38,38,0.85)';
+  ctx.save();
+  ctx.translate(cx, 190);
+  ctx.rotate(-0.25);
+  ctx.fillRect(-45, -8, 90, 16);
+  ctx.restore();
+  ctx.fillRect(cx - 10, 300, 20, 50);
+  ctx.beginPath();
+  ctx.moveTo(cx - 55, 350); ctx.lineTo(cx + 55, 350); ctx.lineTo(cx + 75, baseY); ctx.lineTo(cx - 75, baseY);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(90,60,10,0.6)';
+  ctx.fillRect(cx - 30, baseY - 8, 60, 14);
+  ctx.fillStyle = 'rgba(255,255,255,0.8)';
+  ctx.font = 'bold 7px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('CHAMPIONS', cx, baseY - 1);
+  ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.fillRect(cx - 55, 150, 10, 130);
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  [[cx - 40, 100], [cx, 78], [cx + 40, 100]].forEach(([sx, sy]) => drawRegularPolygon(ctx, sx, sy, 8, 5, -Math.PI / 2));
+  // confetti - a mix of little rects and longer streamer strips
+  const confettiColors = ['#f43f5e', '#3b82f6', '#eab308', '#22c55e', '#a78bfa'];
+  for (let i = 0; i < 28; i++) {
+    ctx.fillStyle = confettiColors[i % confettiColors.length];
+    ctx.save();
+    ctx.translate(rand(40, 480), rand(40, 460));
+    ctx.rotate(rand(0, Math.PI * 2));
+    if (i % 5 === 0) ctx.fillRect(-2, -14, 4, 28); else ctx.fillRect(-3, -5, 6, 10);
+    ctx.restore();
+  }
+}
+// B: knockout bracket - round labels, four quarterfinal slots narrowing
+// through the lines to a single winner at the final, club-colour chips
+// with score marks at each node, a small trophy over the champion.
+function drawCupSceneBracket(ctx) {
+  ctx.clearRect(0, 0, SCENE_W, SCENE_H);
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+  ctx.lineWidth = 2;
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = 'bold 10px sans-serif';
+  ['QF', 'SF', 'F'].forEach((label, i) => ctx.fillText(label, 60 + i * 100 + 20, 50));
+  const slotYs = [90, 160, 260, 330];
+  const chipX = 60;
+  slotYs.forEach((y) => {
+    const club = randomClub();
+    ctx.fillStyle = club.shirt;
+    ctx.fillRect(chipX, y - 8, 60, 16);
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.strokeRect(chipX, y - 8, 60, 16);
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = '9px sans-serif';
+    ctx.fillText(String(Math.floor(rand(0, 4))), chipX + 66, y + 4);
+  });
+  // quarter -> semi
+  [[90, 160, 220], [260, 330, 295]].forEach(([yA, yB, semiY]) => {
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.beginPath(); ctx.moveTo(chipX + 60, yA); ctx.lineTo(chipX + 100, yA); ctx.lineTo(chipX + 100, semiY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(chipX + 60, yB); ctx.lineTo(chipX + 100, yB); ctx.lineTo(chipX + 100, semiY); ctx.stroke();
+    const semiClub = randomClub();
+    ctx.fillStyle = semiClub.shirt;
+    ctx.fillRect(chipX + 100, semiY - 8, 60, 16);
+    ctx.strokeRect(chipX + 100, semiY - 8, 60, 16);
+  });
+  // semi -> final
+  ctx.beginPath(); ctx.moveTo(chipX + 160, 220); ctx.lineTo(chipX + 220, 220); ctx.lineTo(chipX + 220, 258); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(chipX + 160, 295); ctx.lineTo(chipX + 220, 295); ctx.lineTo(chipX + 220, 258); ctx.stroke();
+  const finalClub = randomClub();
+  ctx.fillStyle = 'rgba(250,204,21,0.25)';
+  ctx.fillRect(chipX + 210, 240, 90, 36);
+  ctx.fillStyle = finalClub.shirt;
+  ctx.fillRect(chipX + 220, 250, 70, 16);
+  ctx.strokeStyle = 'rgba(250,204,21,0.8)';
+  ctx.strokeRect(chipX + 210, 240, 90, 36);
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  drawRegularPolygon(ctx, chipX + 255, 218, 10, 5, -Math.PI / 2);
+}
+
+// ---------- Career ----------
+// A: tactics board - full pitch markings (goal boxes, corner arcs, centre
+// circle), role-coloured formation dots, a curved run arrow, an attacking-
+// direction arrow, a clipboard frame around the whole board, two players
+// stood in front reviewing it.
+function drawCareerSceneBoard(ctx) {
+  ctx.clearRect(0, 0, SCENE_W, SCENE_H);
+  // clipboard frame
+  ctx.fillStyle = 'rgba(101,67,33,0.5)';
+  ctx.fillRect(55, 45, 410, 290);
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  ctx.fillRect(230, 38, 60, 16);
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+  ctx.lineWidth = 5;
+  ctx.strokeRect(70, 60, 380, 260);
+  ctx.beginPath(); ctx.moveTo(260, 60); ctx.lineTo(260, 320); ctx.stroke();
+  ctx.beginPath(); ctx.arc(260, 190, 48, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeRect(70, 140, 30, 100);
+  ctx.strokeRect(420, 140, 30, 100);
+  ctx.lineWidth = 3;
+  [[70, 60], [70, 320], [450, 60], [450, 320]].forEach(([x, y]) => {
+    ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.stroke();
+  });
+  const formation = [
+    { x: 100, y: 190, role: 'GK' }, { x: 160, y: 110, role: 'DEF' }, { x: 160, y: 270, role: 'DEF' },
+    { x: 260, y: 90, role: 'MID' }, { x: 260, y: 290, role: 'MID' },
+    { x: 380, y: 130, role: 'FWD' }, { x: 380, y: 250, role: 'FWD' },
+  ];
+  formation.forEach(({ x, y, role }) => {
+    ctx.fillStyle = POSITION_COLOR[role] || 'rgba(255,255,255,0.55)';
+    ctx.beginPath(); ctx.arc(x, y, 11, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1.5; ctx.stroke();
+  });
+  // a dashed run arrow, one midfielder pushing forward into space
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 2;
+  ctx.setLineDash([5, 5]);
+  ctx.beginPath(); ctx.moveTo(260, 90); ctx.quadraticCurveTo(330, 70, 375, 128); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.beginPath(); ctx.moveTo(375, 128); ctx.lineTo(366, 118); ctx.lineTo(368, 132); ctx.closePath(); ctx.fill();
+  placeScenePlayer(ctx, 210, 400, 10.5, null);
+  placeScenePlayer(ctx, 320, 410, 10.5, null);
+}
+// B: transfer negotiation - a contract document (with a second paper
+// stacked behind it) with a round club-crest badge, signature line and
+// pen, a stack of budget bars with a value label, a calendar tab for
+// contract length - Career's business side.
+function drawCareerSceneContract(ctx) {
+  ctx.clearRect(0, 0, SCENE_W, SCENE_H);
+  const club = randomClub();
+  // a second paper peeking out behind, for a little real depth
+  ctx.save();
+  ctx.translate(196, 250);
+  ctx.rotate(0.1);
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.fillRect(-90, -130, 180, 240);
+  ctx.restore();
+  ctx.save();
+  ctx.translate(180, 240);
+  ctx.rotate(-0.06);
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.fillRect(-90, -130, 180, 240);
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 2;
+  ctx.strokeRect(-90, -130, 180, 240);
+  // round club-crest badge instead of a plain square, with initials
+  ctx.fillStyle = club.shirt;
+  ctx.beginPath(); ctx.arc(0, -80, 30, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.font = 'bold 16px sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(club.name.slice(0, 2).toUpperCase(), 0, -79);
+  ctx.textBaseline = 'alphabetic';
+  ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 3;
+  for (let i = 0; i < 5; i++) {
+    ctx.beginPath(); ctx.moveTo(-70, 0 + i * 24); ctx.lineTo(70, 0 + i * 24); ctx.stroke();
+  }
+  // signature squiggle
+  ctx.strokeStyle = 'rgba(30,60,150,0.8)'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(-55, 96);
+  ctx.bezierCurveTo(-30, 70, -10, 120, 10, 90);
+  ctx.bezierCurveTo(30, 65, 45, 110, 60, 96);
+  ctx.stroke();
+  ctx.restore();
+  // pen
+  ctx.save();
+  ctx.translate(300, 340);
+  ctx.rotate(-0.7);
+  ctx.fillStyle = '#1f2937';
+  ctx.fillRect(-6, -70, 12, 90);
+  ctx.fillStyle = '#eab308';
+  ctx.beginPath(); ctx.moveTo(-6, -70); ctx.lineTo(6, -70); ctx.lineTo(0, -90); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  // budget bars + value label
+  const barX = 340, barBase = 400;
+  [70, 100, 130].forEach((h, i) => {
+    ctx.fillStyle = i === 2 ? 'rgba(34,197,94,0.7)' : 'rgba(34,197,94,0.4)';
+    ctx.fillRect(barX + i * 26, barBase - h, 18, h);
+  });
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.font = 'bold 11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('£' + Math.floor(rand(20, 90)) + 'm', barX + 26, barBase - 145);
+  ctx.textAlign = 'left';
+  // small calendar tab for contract length
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.fillRect(barX - 4, 120, 46, 40);
+  ctx.fillStyle = 'rgba(220,38,38,0.85)';
+  ctx.fillRect(barX - 4, 120, 46, 10);
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.font = 'bold 14px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(String(Math.floor(rand(2, 5))), barX + 19, 148);
+  ctx.font = '7px sans-serif';
+  ctx.fillText('YRS', barX + 19, 128);
+  ctx.textAlign = 'left';
+}
+
+// ---------- Online ----------
+// A: connected globe - lat/long lines, scattered surface dots (a rough
+// "world map" feel), glowing linked nodes with static ping rings around a
+// central one (you), an outer atmosphere glow.
+function drawOnlineSceneGlobe(ctx) {
+  ctx.clearRect(0, 0, SCENE_W, SCENE_H);
+  const cx = 260, cy = 220, r = 155;
+  // outer atmosphere glow
+  ctx.save();
+  const atmo = ctx.createRadialGradient(cx, cy, r * 0.85, cx, cy, r * 1.35);
+  atmo.addColorStop(0, 'rgba(167,139,250,0.22)');
+  atmo.addColorStop(1, 'rgba(167,139,250,0)');
+  ctx.fillStyle = atmo;
+  ctx.fillRect(cx - r * 1.4, cy - r * 1.4, r * 2.8, r * 2.8);
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+  for (let i = 1; i < 4; i++) { ctx.beginPath(); ctx.ellipse(cx, cy, r, r * (i / 4), 0, 0, Math.PI * 2); ctx.stroke(); }
+  ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.lineTo(cx, cy + r); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx - r, cy); ctx.lineTo(cx + r, cy); ctx.stroke();
+  // scattered "landmass" dots across the surface
+  ctx.fillStyle = 'rgba(255,255,255,0.2)';
+  for (let i = 0; i < 30; i++) {
+    const a = rand(0, Math.PI * 2), rr = rand(0, r * 0.95);
+    const ex = cx + Math.cos(a) * rr, ey = cy + Math.sin(a) * rr * 0.5;
+    ctx.beginPath(); ctx.arc(ex, ey, rand(1.5, 3), 0, Math.PI * 2); ctx.fill();
+  }
+  const nodes = [
+    [cx - r * 0.6, cy - r * 0.5], [cx + r * 0.7, cy - r * 0.2], [cx - r * 0.3, cy + r * 0.7],
+    [cx + r * 0.4, cy + r * 0.6], [cx - r * 0.8, cy + r * 0.1], [cx + r * 0.75, cy + r * 0.45],
+  ];
+  ctx.strokeStyle = 'rgba(167,139,250,0.65)'; ctx.lineWidth = 2;
+  nodes.forEach(([x, y]) => { ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x, y); ctx.stroke(); });
+  nodes.forEach(([x, y]) => {
+    ctx.save();
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, 18);
+    glow.addColorStop(0, 'rgba(167,139,250,0.55)');
+    glow.addColorStop(1, 'rgba(167,139,250,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(x - 18, y - 18, 36, 36);
+    ctx.restore();
+    ctx.fillStyle = 'rgba(196,181,253,0.95)';
+    ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill();
+  });
+  // static "ping" rings around the central node, three stages frozen at once
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1.5;
+  [16, 26, 36].forEach((rr) => { ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.stroke(); });
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.beginPath(); ctx.arc(cx, cy, 11, 0, Math.PI * 2); ctx.fill();
+}
+// B: head-to-head - two players from different clubs facing off in front
+// of a crowd band, club badges over each, a "VS" badge between them with
+// a live connection strength readout, signal bars, a connecting line.
+function drawOnlineSceneVersus(ctx) {
+  ctx.clearRect(0, 0, SCENE_W, SCENE_H);
+  drawSceneCrowd(ctx, 40, 40, 440, 30, 3);
+  drawSceneGrass(ctx, 40, 340, 440, 130);
+  const clubA = randomClub(), clubB = randomClub();
+  ctx.strokeStyle = 'rgba(167,139,250,0.5)'; ctx.lineWidth = 3;
+  ctx.setLineDash([6, 6]);
+  ctx.beginPath(); ctx.moveTo(150, 260); ctx.lineTo(370, 260); ctx.stroke();
+  ctx.setLineDash([]);
+  [[160, clubA], [360, clubB]].forEach(([x, club]) => {
+    ctx.fillStyle = club.shirt;
+    ctx.beginPath(); ctx.arc(x, 175, 18, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2; ctx.stroke();
+  });
+  placeScenePlayer(ctx, 160, 300, 13, null, clubA);
+  placeScenePlayer(ctx, 360, 300, 13, null, clubB);
+  // VS badge
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.beginPath(); ctx.arc(260, 260, 34, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 22px sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('VS', 260, 262);
+  ctx.font = 'bold 9px sans-serif';
+  ctx.fillStyle = 'rgba(74,222,128,0.9)';
+  ctx.fillText('LIVE', 260, 190);
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+  // signal bars above each player
+  [160, 360].forEach((x) => {
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = 'rgba(74,222,128,0.8)';
+      ctx.fillRect(x - 20 + i * 11, 130 - i * 6, 7, 8 + i * 6);
+    }
+  });
+}
+
+const MODE_SCENE_VARIANTS = {
+  play: [drawKickoffSceneGoal, drawKickoffSceneFormation],
+  season: [drawSeasonSceneTable, drawSeasonSceneFixtures],
+  cup: [drawCupSceneTrophy, drawCupSceneBracket],
+  career: [drawCareerSceneBoard, drawCareerSceneContract],
+  online: [drawOnlineSceneGlobe, drawOnlineSceneVersus],
+};
+
+// Renders MODE_SCENE_LAYERS canvases into a page's .mode-scene-bg, cycling
+// through that mode's different scene designs (not just re-rolling the same
+// one) and staggering each by a negative animation-delay so they're always
+// mid-cycle at different points - one drifting out as the next drifts in.
+function renderModeSceneLayers(container, modeKey) {
+  if (!container) return;
+  container.innerHTML = '';
+  const variants = MODE_SCENE_VARIANTS[modeKey];
+  if (!variants || !variants.length) return;
+  const dpr = window.devicePixelRatio || 1;
+  for (let i = 0; i < MODE_SCENE_LAYERS; i++) {
+    const canvas = document.createElement('canvas');
+    canvas.className = 'mode-scene-layer';
+    canvas.style.animationDelay = `${-(i * (MODE_SCENE_ANIM_SEC / MODE_SCENE_LAYERS))}s`;
+    canvas.width = SCENE_W * dpr;
+    canvas.height = SCENE_H * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    variants[i % variants.length](ctx);
+    container.appendChild(canvas);
+  }
+}
+
+function stopModeTipRotation() {
+  if (modeTipTimer) { clearInterval(modeTipTimer); modeTipTimer = null; }
+}
+
+// Restarted every time the active page changes (see goToModePage) so each
+// page always starts on its own first tip rather than wherever the
+// previous page's rotation happened to leave off.
+function startModeTipRotation(idx) {
+  stopModeTipRotation();
+  modeTipIdx = 0;
+  const pageEl = document.querySelectorAll('.mode-page')[idx];
+  const tipEl = pageEl && pageEl.querySelector('.mode-tip');
+  const tips = MODE_PAGES[idx] && MODE_PAGES[idx].tips;
+  if (!tipEl || !tips || !tips.length) return;
+  tipEl.textContent = tips[0];
+  modeTipTimer = setInterval(() => {
+    tipEl.classList.add('fading');
+    setTimeout(() => {
+      modeTipIdx = (modeTipIdx + 1) % tips.length;
+      tipEl.textContent = tips[modeTipIdx];
+      tipEl.classList.remove('fading');
+    }, 300); // matches .mode-tip's CSS opacity transition duration
+  }, 4500);
+}
+
+function renderModeDots() {
+  const dotsEl = document.getElementById('mode-browser-dots');
+  dotsEl.innerHTML = '';
+  MODE_PAGES.forEach((mode, i) => {
+    const dot = document.createElement('button');
+    dot.className = 'mode-dot';
+    dot.setAttribute('aria-label', mode.key);
+    dot.onclick = () => goToModePage(i);
+    dotsEl.appendChild(dot);
+  });
+}
+
+function goToModePage(idx) {
+  modeBrowserIdx = clamp(idx, 0, MODE_PAGES.length - 1);
+  const track = document.getElementById('mode-browser-track');
+  track.style.transform = `translateX(-${modeBrowserIdx * 100}vw)`;
+  document.querySelectorAll('.mode-dot').forEach((dot, i) => dot.classList.toggle('active', i === modeBrowserIdx));
+  // Hide whichever arrow points somewhere you can't go - there's nothing
+  // past the first/last page to browse toward.
+  document.getElementById('mode-browser-prev').classList.toggle('hidden', modeBrowserIdx === 0);
+  document.getElementById('mode-browser-next').classList.toggle('hidden', modeBrowserIdx === MODE_PAGES.length - 1);
+  startModeTipRotation(modeBrowserIdx);
+}
+
+// idx defaults to whichever page is currently showing - the Enter/Space
+// keyboard shortcut and each page's own Play button both just want "this one".
+function selectModePage(idx) {
+  const mode = MODE_PAGES[idx != null ? idx : modeBrowserIdx];
+  if (!mode) return;
+  SFX.warmup();
+  if (mode.onSelect) mode.onSelect();
+  else showScreen(mode.screen);
+}
+
+// Drag-to-swipe, mouse or touch - pointermove/pointerup are only attached to
+// the window while an actual drag is in progress (removed again on release),
+// so this stays cheap and doesn't need pointer capture on an element that
+// also contains real clickable buttons (each page's Play button).
+function bindModeBrowserSwipe() {
+  const track = document.getElementById('mode-browser-track');
+  const SWIPE_THRESHOLD = 60;
+  let startX = null, startY = null, dragging = false, decided = false, horizontal = false;
+
+  const onMove = (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - startX, dy = e.clientY - startY;
+    if (!decided) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      decided = true;
+      horizontal = Math.abs(dx) > Math.abs(dy);
+      if (horizontal) track.style.transition = 'none';
+    }
+    if (!horizontal) return;
+    e.preventDefault();
+    track.style.transform = `translateX(${-modeBrowserIdx * window.innerWidth + dx}px)`;
+  };
+  const onUp = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    track.style.transition = '';
+    if (horizontal) {
+      const dx = e.clientX - startX;
+      if (dx < -SWIPE_THRESHOLD) goToModePage(modeBrowserIdx + 1);
+      else if (dx > SWIPE_THRESHOLD) goToModePage(modeBrowserIdx - 1);
+      else goToModePage(modeBrowserIdx); // too small a drag - snap back
+    }
+  };
+  track.addEventListener('pointerdown', (e) => {
+    startX = e.clientX; startY = e.clientY;
+    dragging = true; decided = false; horizontal = false;
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+}
+
+function initModeBrowser() {
+  renderModeDots();
+  document.querySelectorAll('.mode-page').forEach((pageEl, i) => {
+    renderModeAbstractLines(pageEl.querySelector('.mode-abstract-bg'));
+    renderModeCollage(pageEl.querySelector('.mode-collage'));
+    renderModeSceneLayers(pageEl.querySelector('.mode-scene-bg'), pageEl.dataset.mode);
+    const enterBtn = pageEl.querySelector('.mode-enter-btn');
+    if (enterBtn) enterBtn.onclick = () => selectModePage(i);
+  });
+  document.getElementById('mode-browser-prev').onclick = () => goToModePage(modeBrowserIdx - 1);
+  document.getElementById('mode-browser-next').onclick = () => goToModePage(modeBrowserIdx + 1);
+  bindModeBrowserSwipe();
+  goToModePage(0);
+}
+
 // careerNextPlayerId is a plain module-level counter, not itself saved as
 // part of CAREER - after a page reload it resets to 1, so the next freshly
 // generated player (a transfer-market listing, a regen) could get an id
@@ -2876,6 +4362,23 @@ const CAREER_FORMATION_KEYS = Object.keys(CAREER_FORMATIONS);
 // off the rest of the season's fixture list; winning every round pays out.
 const FA_CUP_ROUNDS = 4;
 const LEAGUE_CUP_ROUNDS = 3;
+// Human-readable name for fixture.round (0-based) per competition - used by
+// applyCareerFixtureResult/resolveEuropeGroup to record WHERE a knocked-out
+// competition ended (see CAREER.seasonEliminations), not just that it did,
+// for the end-of-season summary (showSeasonCompleteOverlay).
+const FA_CUP_ROUND_NAMES = ['Round of 16', 'Quarter-Final', 'Semi-Final', 'Final']; // matches FA_CUP_ROUNDS, same shape as standalone Cup mode's CUP_ROUND_NAMES
+const LEAGUE_CUP_ROUND_NAMES = ['Quarter-Final', 'Semi-Final', 'Final']; // matches LEAGUE_CUP_ROUNDS
+function careerRoundName(fixtureType, roundIndex) {
+  if (fixtureType === 'facup') return FA_CUP_ROUND_NAMES[roundIndex] || `Round ${roundIndex + 1}`;
+  if (fixtureType === 'leaguecup') return LEAGUE_CUP_ROUND_NAMES[roundIndex] || `Round ${roundIndex + 1}`;
+  if (fixtureType.endsWith('-knockout')) {
+    // Mirrors resolveEuropeGroup's own knockoutRounds array - UCL runs a
+    // Semi-Final before its Final, UEL goes straight to one.
+    const names = fixtureType.startsWith('ucl') ? ['Semi-Final', 'Final'] : ['Final'];
+    return names[roundIndex] || `Round ${roundIndex + 1}`;
+  }
+  return null;
+}
 const CUP_PRIZE = 30; // £m, either cup
 const LEAGUE_TITLE_PRIZE = 100; // £m - awarded for finishing top of the (estimated) table, see generateLeagueTableEstimate
 const COMPETITION_LABEL = {
@@ -3020,9 +4523,12 @@ function europeStrengthBand(tier) {
 // your own real/simmed result, for whoever you played that round, or a
 // quick simulateFixture result for everyone else that round) - so the table
 // stays an honest running record instead of a single re-rolled guess.
-function generateLeagueTableEstimate(clubIdx) {
-  const leagueClubs = ALL_CLUBS.map((c, i) => i).filter(i => ALL_CLUBS[i].league === CAREER.clubLeague);
-  return leagueClubs.filter(i => i !== clubIdx).map(i => ({ clubIdx: i, points: 0, gd: 0 }));
+// league is passed explicitly (not read off CAREER.clubLeague) so Season
+// mode can reuse this same table-tracking system for its own league too -
+// see startSeason.
+function generateLeagueTableEstimate(clubIdx, league) {
+  const leagueClubs = ALL_CLUBS.map((c, i) => i).filter(i => ALL_CLUBS[i].league === league);
+  return leagueClubs.filter(i => i !== clubIdx).map(i => ({ clubIdx: i, points: 0, gd: 0, gf: 0, ga: 0 }));
 }
 
 // Called once per league fixture you resolve (played live or simmed - both
@@ -3032,15 +4538,19 @@ function generateLeagueTableEstimate(clubIdx) {
 // match), and every other club still in the table plays a quick simulated
 // match against another of their number this round, so the table keeps
 // moving in step with your own season instead of sitting frozen.
-function advanceLeagueRound(oppIdx, yourGf, yourGa) {
-  const oppRow = CAREER.tableEstimate.find(r => r.clubIdx === oppIdx);
+// tableEstimate is passed explicitly (not read off CAREER.tableEstimate) so
+// Season mode's own standings can advance through this same function too.
+function advanceLeagueRound(tableEstimate, oppIdx, yourGf, yourGa) {
+  const oppRow = tableEstimate.find(r => r.clubIdx === oppIdx);
   if (oppRow) {
     if (yourGf > yourGa) { /* you won this fixture - your opponent gets nothing */ }
     else if (yourGf === yourGa) oppRow.points += 1;
     else oppRow.points += 3;
     oppRow.gd += yourGa - yourGf;
+    oppRow.gf = (oppRow.gf || 0) + yourGa;
+    oppRow.ga = (oppRow.ga || 0) + yourGf;
   }
-  const others = shuffled(CAREER.tableEstimate.filter(r => r.clubIdx !== oppIdx));
+  const others = shuffled(tableEstimate.filter(r => r.clubIdx !== oppIdx));
   for (let i = 0; i + 1 < others.length; i += 2) {
     const a = others[i], b = others[i + 1];
     const sim = simulateFixture(effectiveClub(a.clubIdx).strength || 1, effectiveClub(b.clubIdx).strength || 1);
@@ -3049,6 +4559,8 @@ function advanceLeagueRound(oppIdx, yourGf, yourGa) {
     else b.points += 3;
     a.gd += sim.home - sim.away;
     b.gd += sim.away - sim.home;
+    a.gf = (a.gf || 0) + sim.home; a.ga = (a.ga || 0) + sim.away;
+    b.gf = (b.gf || 0) + sim.away; b.ga = (b.ga || 0) + sim.home;
   }
 }
 
@@ -3080,6 +4592,12 @@ function newCareer(slot, clubIdx, halfLenMin, skillKey) {
     // applyCareerFixtureResult/resolveEuropeGroup) - used to build this
     // season's entry in seasonHistory once it ends, see endCareerSeason.
     seasonTrophies: { facup: false, leaguecup: false, ucl: false, uel: false },
+    // The flip side of seasonTrophies - null until (if) that competition
+    // ends in defeat, then the round name it happened at (see
+    // careerRoundName). Never entering a competition at all (no European
+    // qualification this season, say) just leaves it null too - the season
+    // summary only shows a competition you actually played a fixture in.
+    seasonEliminations: { facup: null, leaguecup: null, ucl: null, uel: null },
     seasonHistory: [],
   };
   // buildCareerFixtures/generateLeagueTableEstimate read CAREER.clubLeague off
@@ -3087,7 +4605,7 @@ function newCareer(slot, clubIdx, halfLenMin, skillKey) {
   // evaluated inline as part of constructing this same object literal (that
   // would read the *old* CAREER, null on a brand new save).
   CAREER.fixtures = buildCareerFixtures(clubIdx);
-  CAREER.tableEstimate = generateLeagueTableEstimate(clubIdx);
+  CAREER.tableEstimate = generateLeagueTableEstimate(clubIdx, def.league);
   saveCareerSlot(slot, CAREER);
 }
 
@@ -3131,6 +4649,7 @@ function applyCareerSquad(team, ctx) {
     p.isGK = slot.group === 'GK';
     if (cp) {
       p.realName = cp.name;
+      p.age = cp.age; // real persistent age, not makeSquadPlayer's random placeholder roll
       p.careerId = cp.id; // lets a goal scored this match be credited back to the persistent player - see recordCareerResult
       // Playing their real position gets full attributes; a neighbouring
       // line (see GROUP_ADJACENT/canPlayGroup, checked back when they were
@@ -3139,6 +4658,11 @@ function applyCareerSquad(team, ctx) {
       const outOfPos = cp.group !== slot.group ? OUT_OF_POSITION_PENALTY : 1;
       p.pace = cp.pace * outOfPos; p.tackling = cp.tackling * outOfPos;
       p.finishing = cp.finishing * outOfPos; p.reflexes = cp.reflexes * outOfPos;
+      p.passing = (cp.passing != null ? cp.passing : cp.finishing) * outOfPos;
+      p.dribbling = (cp.dribbling != null ? cp.dribbling : cp.pace) * outOfPos;
+      p.strength = (cp.strength != null ? cp.strength : cp.tackling) * outOfPos;
+      // Fitness isn't positional, so out-of-position play doesn't dent it.
+      p.staminaRating = cp.staminaRating != null ? cp.staminaRating : 1;
     }
   });
   // Bench - not formation-locked (real benches aren't either), just the rest
@@ -3148,10 +4672,15 @@ function applyCareerSquad(team, ctx) {
     const cp = pool[i];
     if (!cp) return;
     p.realName = cp.name;
+    p.age = cp.age; // real persistent age, not makeSquadPlayer's random placeholder roll
     p.careerId = cp.id;
     p.group = cp.group;
     p.isGK = cp.group === 'GK';
     p.pace = cp.pace; p.tackling = cp.tackling; p.finishing = cp.finishing; p.reflexes = cp.reflexes;
+    p.passing = cp.passing != null ? cp.passing : cp.finishing;
+    p.dribbling = cp.dribbling != null ? cp.dribbling : cp.pace;
+    p.strength = cp.strength != null ? cp.strength : cp.tackling;
+    p.staminaRating = cp.staminaRating != null ? cp.staminaRating : 1;
   });
   // The match's own kickoff already ran (inside initMatch) before this overlay
   // touched p.slot, so home positions need recomputing against the new
@@ -3205,6 +4734,7 @@ function pushCareerMatchLog(fixture, gf, ga, resultOverride) {
 // loss, same as it would in reality.
 function applyCareerFixtureResult(fixture, gf, ga) {
   CAREER.seasonTrophies = CAREER.seasonTrophies || { facup: false, leaguecup: false, ucl: false, uel: false };
+  CAREER.seasonEliminations = CAREER.seasonEliminations || { facup: null, leaguecup: null, ucl: null, uel: null };
   if (fixture.type === 'league') {
     const r = CAREER.record;
     r.played++; r.gf += gf; r.ga += ga;
@@ -3213,7 +4743,7 @@ function applyCareerFixtureResult(fixture, gf, ga) {
     else { r.lost++; }
     CAREER.results.push({ oppIdx: fixture.oppIdx, gf, ga });
     pushCareerMatchLog(fixture, gf, ga);
-    advanceLeagueRound(fixture.oppIdx, gf, ga);
+    advanceLeagueRound(CAREER.tableEstimate, fixture.oppIdx, gf, ga);
     return;
   }
   if (fixture.type.endsWith('-group')) {
@@ -3263,6 +4793,7 @@ function applyCareerFixtureResult(fixture, gf, ga) {
       }
     } else {
       CAREER.fixtures = CAREER.fixtures.filter((f, i) => !(i > CAREER.fixtureIdx && f.type === fixture.type));
+      CAREER.seasonEliminations[comp] = careerRoundName(fixture.type, fixture.round);
       showToast(`${decidedByPens ? 'Lost on penalties, e' : 'E'}liminated from the ${fixtureCompetitionLabel(fixture)} ${aggGf}-${aggGa}${decidedByPens ? '' : ' on aggregate'}`, '#e63946');
       CAREER.europeGroup = null;
     }
@@ -3289,6 +4820,7 @@ function applyCareerFixtureResult(fixture, gf, ga) {
     }
   } else {
     CAREER.fixtures = CAREER.fixtures.filter((f, i) => !(i > CAREER.fixtureIdx && f.type === fixture.type));
+    CAREER.seasonEliminations[fixture.type] = careerRoundName(fixture.type, fixture.round);
     showToast(`${decidedByPens ? 'Lost on penalties, e' : 'E'}liminated from the ${fixtureCompetitionLabel(fixture)}`, '#e63946');
   }
 }
@@ -3343,6 +4875,8 @@ function resolveEuropeGroup() {
     });
     CAREER.europeGroup = null;
   } else {
+    CAREER.seasonEliminations = CAREER.seasonEliminations || { facup: null, leaguecup: null, ucl: null, uel: null };
+    CAREER.seasonEliminations[comp] = 'Group Stage';
     showToast(`Eliminated from the ${label} group stage`, '#e63946');
     CAREER.europeGroup = null;
   }
@@ -3378,7 +4912,7 @@ function simulateFixture(homeStrength, awayStrength) {
 }
 function careerSquadStrength() {
   if (!CAREER.squad.length) return ALL_CLUBS[CAREER.clubIdx].strength || 1;
-  return CAREER.squad.reduce((sum, cp) => sum + (cp.pace + cp.tackling + cp.finishing + cp.reflexes) / 4, 0) / CAREER.squad.length;
+  return CAREER.squad.reduce((sum, cp) => sum + positionNeutralAvg(cp), 0) / CAREER.squad.length;
 }
 function careerSimNextFixture() {
   const fixture = CAREER.fixtures[CAREER.fixtureIdx];
@@ -3412,15 +4946,15 @@ function endCareerSeason() {
     if (avg < cp.potential - 0.02) delta = rand(0.01, 0.04); // still room to grow toward potential
     else if (cp.age <= 29) delta = rand(-0.01, 0.01); // prime years - roughly stable
     else delta = -rand(0.01, cp.age >= 33 ? 0.05 : 0.03); // decline, faster past 33
-    ['pace', 'tackling', 'finishing', 'reflexes'].forEach(attr => {
-      cp[attr] = clamp(cp[attr] + delta + rand(-0.02, 0.02), 0.4, 1.5);
+    ['pace', 'tackling', 'finishing', 'reflexes', 'passing', 'dribbling', 'strength'].forEach(attr => {
+      cp[attr] = clamp((cp[attr] != null ? cp[attr] : avg) + delta + rand(-0.02, 0.02), 0.4, 1.5);
     });
     cp.value = computePlayerValue(cp);
     cp.wage = computePlayerWage(cp);
     // Contract countdown - reaching 0 means it's actually run out (not just
     // "about to"), so they leave as a free transfer at that point rather
-    // than one season earlier. Renewing (see renewCareerPlayerContract,
-    // offered in the squad screen once low) resets this before it can hit 0.
+    // than one season earlier. Renewing (see startRenewNegotiation, offered
+    // in the squad screen once low) resets this before it can hit 0.
     cp.contractYears = (cp.contractYears == null ? 3 : cp.contractYears) - 1;
     if (cp.contractYears <= 0) { expired.push(cp.name); return false; }
     return true;
@@ -3491,6 +5025,7 @@ function endCareerSeason() {
   // next one. See showSeasonCompleteOverlay/renderCareerHistoryScreen.
   CAREER.seasonHistory = CAREER.seasonHistory || [];
   CAREER.seasonTrophies = CAREER.seasonTrophies || { facup: false, leaguecup: false, ucl: false, uel: false };
+  CAREER.seasonEliminations = CAREER.seasonEliminations || { facup: null, leaguecup: null, ucl: null, uel: null };
   const seasonSummary = {
     season: CAREER.seasonNumber,
     league: leaguePlayedIn,
@@ -3501,17 +5036,19 @@ function endCareerSeason() {
     promoted: wasPromoted,
     relegated: wasRelegated,
     trophies: { ...CAREER.seasonTrophies },
+    eliminations: { ...CAREER.seasonEliminations },
   };
   CAREER.seasonHistory.push(seasonSummary);
   CAREER.lastSeasonSummary = seasonSummary;
   CAREER.seasonTrophies = { facup: false, leaguecup: false, ucl: false, uel: false };
+  CAREER.seasonEliminations = { facup: null, leaguecup: null, ucl: null, uel: null };
   CAREER.budget += 15 + CAREER.record.points; // simple prize-money-ish top-up
   CAREER.seasonNumber++;
   CAREER.fixtures = buildCareerFixtures(CAREER.clubIdx);
   CAREER.fixtureIdx = 0;
   CAREER.record = { played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, points: 0 };
   CAREER.results = [];
-  CAREER.tableEstimate = generateLeagueTableEstimate(CAREER.clubIdx);
+  CAREER.tableEstimate = generateLeagueTableEstimate(CAREER.clubIdx, CAREER.clubLeague);
 }
 
 // Every signable player right now: your own free-agent pool (released
@@ -3634,19 +5171,6 @@ function releasePlayer(cp) {
   CAREER.squad = CAREER.squad.filter(p => p.id !== cp.id);
   CAREER.budget += Math.round(cp.value * 0.5);
   saveCareerSlot(CAREER.slot, CAREER);
-}
-
-// A fresh deal for someone already in your squad whose contract is about to
-// run out - a flat signing-on cost (not the full transfer value, they're
-// not being bought) plus resetting the countdown, same shape as a real
-// contract extension. Returns false (no budget change) if you can't afford it.
-function renewCareerPlayerContract(cp, cost) {
-  if (CAREER.budget < cost) return false;
-  CAREER.budget -= cost;
-  cp.contractYears = Math.floor(rand(3, 6));
-  cp.wage = Math.round(computePlayerWage(cp) * 1.1 * 10) / 10; // a renewal usually costs a bit more than their old wage
-  saveCareerSlot(CAREER.slot, CAREER);
-  return true;
 }
 
 let careerNextOfferId = 1;
@@ -3838,13 +5362,13 @@ function releaseShootoutCharge() {
 
 function initMatch(yourIdx, oppIdx, halfLenMin, skillKey) {
   lastMatchSettings = { yourIdx, oppIdx, halfLenMin, skillKey };
-  initMatchWithClubs(TEAMS[yourIdx], TEAMS[oppIdx], halfLenMin, skillKey);
+  initMatchWithClubs(ALL_CLUBS[yourIdx], ALL_CLUBS[oppIdx], halfLenMin, skillKey);
 }
 
-// Same as initMatch, but takes full club objects instead of TEAMS indices -
-// lets Career mode start a match with any ALL_CLUBS entry (any league), not
-// just the 20 Premier League clubs. initMatch itself is just a thin wrapper
-// around this for Play/Season/Cup, which only ever deal with TEAMS.
+// Same as initMatch, but takes full club objects instead of ALL_CLUBS
+// indices - Career mode already only ever deals in club objects, never a
+// plain index, since a save's club can drift (see effectiveClub). initMatch
+// itself is just a thin index-based wrapper around this for Play/Season/Cup.
 function initMatchWithClubs(homeDef, oppDef, halfLenMin, skillKey) {
   // Your team always wears its home kit; the opposition switches to their
   // away strip if their home colours would be too close to yours to tell apart.
@@ -3865,6 +5389,7 @@ function initMatchWithClubs(homeDef, oppDef, halfLenMin, skillKey) {
   G.etHalf = 0;
   G.isNightMatch = Math.random() < NIGHT_MATCH_CHANCE;
   rollWeather();
+  G.momentum = [0, 0]; // see updateMomentum/momentumMultiplier - a short-lived edge for whoever just scored
   G.pendingScorer = null;
   G.allMatchPlayers = [...G.teams[0].players, ...G.teams[1].players];
   G.eventLog = [];
@@ -3888,6 +5413,11 @@ function initMatchWithClubs(homeDef, oppDef, halfLenMin, skillKey) {
   awayPanel.style.setProperty('--panel-color', oppKit.shirt);
   awayPanel.style.setProperty('--panel-text', readableTextColor(oppKit.shirt));
   awayPanel.style.setProperty('--panel-badge', readableTextColor(oppKit.shirt));
+  setTeamCrest('crest-home', homeDef);
+  // oppKit may just be oppDef's own away kit sub-object (no .name of its
+  // own) - name always comes from the real club, colour from whichever kit
+  // is actually being worn (see the kitsClash check above).
+  setTeamCrest('crest-away', { name: oppDef.name, shirt: oppKit.shirt });
   updateCardIndicators();
   SFX.startCrowdAmbience();
   requestMobileFullscreen();
@@ -3921,10 +5451,26 @@ function attackTarget(p, team) {
   return { x: tx, y: ty };
 }
 
+// Within this many metres of the ball, a defender presses regardless of
+// their team's usual pressCount - see updatePressing. "Under pressure"
+// shouldn't be something even a low-press team's defenders just shrug off
+// because they weren't one of the nominal top-N closest.
+const FORCED_PRESS_RADIUS = 7;
+
 function defendTarget(p, team) {
   const drop = (p.group === 'FWD' ? 6 : p.group === 'MID' ? 3 : 1) * (PRESS_STYLES[team.pressStyle] || PRESS_STYLES.mid).dropMult;
   const tx = p.home.x - drop * team.attackDir;
-  const ty = lerp(p.home.y, G.ball.pos.y, 0.25);
+  // A real back line doesn't just track the ball's y like a camera - it
+  // shifts to cover whatever's actually dangerous, which is often an
+  // opponent making a run rather than the ball itself. Blend home position,
+  // ball position, and the average position of nearby opposing outfield
+  // players ahead of this defender (the "threats") rather than picking one.
+  const oppTeam = G.teams[1 - p.__team];
+  const aheadX = p.home.x + 15 * team.attackDir;
+  const threats = outfield(oppTeam).filter(o => team.attackDir === 1 ? o.pos.x < aheadX : o.pos.x > aheadX);
+  const threatY = threats.length ? threats.reduce((sum, o) => sum + o.pos.y, 0) / threats.length : G.ball.pos.y;
+  const coverY = lerp(G.ball.pos.y, threatY, 0.4);
+  const ty = lerp(p.home.y, coverY, 0.3);
   return { x: tx, y: ty };
 }
 
@@ -3937,6 +5483,11 @@ function updatePressing(dt) {
     const pressCount = (PRESS_STYLES[team.pressStyle] || PRESS_STYLES.mid).pressCount;
     const candidates = outfield(team).slice().sort((a, b) => dist(a.pos, G.ball.pos) - dist(b.pos, G.ball.pos));
     for (let i = 0; i < Math.min(pressCount, candidates.length); i++) candidates[i].pressing = true;
+    // Anyone else close enough presses too, however many that turns out to
+    // be - a low-press team's 3rd/4th-nearest defender standing off inside
+    // FORCED_PRESS_RADIUS while only the nominal top-1 or 2 actually engage
+    // is exactly the gap a human dribbler could walk straight through.
+    candidates.forEach(p2 => { if (dist(p2.pos, G.ball.pos) < FORCED_PRESS_RADIUS) p2.pressing = true; });
   }
 }
 
@@ -3971,12 +5522,16 @@ function aiMovePlayer(p, team, dt) {
   let speed = G.skill.speed * p.pace;
   if (p.isGK) speed *= GK_SPEED_MULT;
   if (p.pressing) speed *= G.skill.pressBoost;
-  if (!p.isGK) speed *= finalThirdMultiplier(team, 'pace');
+  if (!p.isGK) speed *= finalThirdMultiplier(team, 'pace') * momentumMultiplier(team, 'pace');
   // Team strength and difficulty can push pace well above the old fixed
   // range this was tuned against - re-cap normal movement below your own
   // speed so a strong/boosted opponent still can't simply outrun you.
   // A deliberate breakaway run is allowed past that cap - that's the point.
-  if (!p.isGK) speed = Math.min(speed, HUMAN_SPEED * 0.97);
+  // A player actively pressing gets a slightly HIGHER cap instead - just
+  // enough to actually close down and catch a dribbling human rather than
+  // trailing at a fixed distance forever, which used to let you stroll
+  // straight past a "pressing" defender that could never quite catch up.
+  if (!p.isGK) speed = Math.min(speed, HUMAN_SPEED * (p.pressing ? 1.04 : 0.97));
   if (isRunning) speed *= 1.2;
   speed *= lerp(0.7, 1.0, p.stamina); // tired legs move slower
   if (d > 0.15) {
@@ -4003,7 +5558,7 @@ function aiTackleAttempt(p, dt) {
   const now = performance.now() / 1000;
   if (now - p.lastTackleTry < TACKLE_RETRY_SEC) return;
   p.lastTackleTry = now;
-  if (Math.random() < clamp(G.skill.tackleChance * p.tackling * finalThirdMultiplier(G.teams[p.__team], 'tackle'), 0.05, 0.95)) {
+  if (Math.random() < clamp(G.skill.tackleChance * p.tackling * finalThirdMultiplier(G.teams[p.__team], 'tackle') * momentumMultiplier(G.teams[p.__team], 'tackle') / carrierResistance(G.ball.owner), 0.05, 0.95)) {
     SFX.tackle();
     shakeScreen();
     vibrate(25);
@@ -4139,7 +5694,11 @@ function checkOffsideAndCall(target, team, exempt) {
   return true;
 }
 
-function releasePass(player, team, power) {
+// `aim` (-1..1) is only passed for a human-steered throw-in (see
+// isAimableThrowinSituation) - every other pass (AI takers, open play,
+// any other restart) keeps the existing nearest-teammate-in-cone targeting
+// by leaving it undefined.
+function releasePass(player, team, power, aim) {
   SFX.kick();
   const restartKindAtKick = G.restart ? G.restart.kind : null;
   const offsideExempt = OFFSIDE_EXEMPT_KINDS.includes(restartKindAtKick);
@@ -4147,16 +5706,56 @@ function releasePass(player, team, power) {
   const teammates = team.players.filter(p => p !== player);
   const facing = len(player.facing) > 0.01 ? norm(player.facing) : { x: team.attackDir, y: 0 };
 
-  let cone = teammates.filter(t => {
-    const d = norm(sub(t.pos, player.pos));
-    return (d.x * facing.x + d.y * facing.y) > 0.26;
-  });
-  if (cone.length === 0) cone = teammates;
-  cone.sort((a, b) => dist(a.pos, player.pos) - dist(b.pos, player.pos));
-  const target = cone[0];
+  let target, straightDir;
+  if (aim != null && restartKindAtKick === 'throwin' && teammates.length) {
+    // Steered throw-in - aim sweeps from thrown back toward your own goal
+    // (-1) to thrown forward toward the opponent's (+1), always angled INTO
+    // the pitch from whichever touchline the throw is taken from (a real
+    // throw can't land anywhere else) - see THROWIN_AIM_ANGLE. The actual
+    // receiver is just whichever teammate ends up most closely along that
+    // thrown line, so control-follow/offside etc still have a real target.
+    const intoField = player.pos.y < PITCH_WID / 2 ? 1 : -1;
+    straightDir = rotateVec({ x: 0, y: intoField }, clamp(aim, -1, 1) * THROWIN_AIM_ANGLE * team.attackDir);
+    const alignCost = (v) => 1 - (straightDir.x * v.x + straightDir.y * v.y); // smaller = more aligned with the thrown direction
+    target = teammates.slice().sort((a, b) => alignCost(norm(sub(a.pos, player.pos))) - alignCost(norm(sub(b.pos, player.pos))))[0];
+  } else {
+    let cone = teammates.filter(t => {
+      const d = norm(sub(t.pos, player.pos));
+      return (d.x * facing.x + d.y * facing.y) > 0.26;
+    });
+    if (cone.length === 0) cone = teammates;
+    cone.sort((a, b) => dist(a.pos, player.pos) - dist(b.pos, player.pos));
+    target = cone[0];
+    straightDir = norm(sub(target.pos, player.pos));
+  }
   if (checkOffsideAndCall(target, team, offsideExempt)) return;
-  const dir = norm(sub(target.pos, player.pos));
-  const speed = PASS_MIN_SPEED + power * (PASS_MAX_SPEED - PASS_MIN_SPEED);
+  const passDist = dist(target.pos, player.pos);
+  // Passing is a real attribute, not just a display stat - a weak passer's
+  // ball drifts off the intended line; an elite one is pinpoint. ~0deg of
+  // wobble at the top end (passing >= 1.2) up to ~23deg for the weakest. A
+  // wet pitch (see RAIN_WOBBLE_BONUS) adds a flat bit of extra wobble on
+  // top for everyone - even the best passers lose a touch of precision on a
+  // slick ball, though a great passer still ends up far more reliable than
+  // a poor one.
+  let wobbleAngle = clamp((1.2 - (player.passing != null ? player.passing : 1)) * 0.35, 0, 0.4) + (G.weather === 'rain' ? RAIN_WOBBLE_BONUS : 0);
+  // Assisted: wobble is suppressed almost to nothing once the receiver is
+  // close to a touchline/goal line, where even a small stray angle would
+  // send the ball straight out of play - full skill-based wobble still
+  // applies to anyone standing centrally, so Passing still matters there.
+  const edgeDist = Math.min(target.pos.y, PITCH_WID - target.pos.y, target.pos.x, PITCH_LEN - target.pos.x);
+  wobbleAngle *= clamp(edgeDist / PASS_EDGE_ASSIST_MARGIN, 0.15, 1);
+  const dir = wobbleAngle > 0.001 ? rotateVec(straightDir, rand(-wobbleAngle, wobbleAngle)) : straightDir;
+  // A bare tap (power ~0) still carries enough pace to actually reach the
+  // receiver with real speed instead of dying short/soft and needing them
+  // to run the last bit themselves - distanceAssistSpeed is exactly the
+  // speed needed to arrive at PASS_MIN_ARRIVAL_SPEED given how fast the
+  // ball decelerates (PITCH_FRICTION). Holding for extra power still adds
+  // pace on top of whatever the distance alone demands, for a firmer,
+  // faster ball - capped at PASS_MAX_SPEED so a long tap's assist can never
+  // actually outrun what a real full-power charge would produce.
+  const chargedSpeed = PASS_MIN_SPEED + power * (PASS_MAX_SPEED - PASS_MIN_SPEED);
+  const distanceAssistSpeed = Math.sqrt(PASS_MIN_ARRIVAL_SPEED * PASS_MIN_ARRIVAL_SPEED + 2 * PITCH_FRICTION * passDist);
+  const speed = clamp(Math.max(chargedSpeed, distanceAssistSpeed), PASS_MIN_SPEED, PASS_MAX_SPEED);
 
   G.ball.owner = null;
   G.ball.pos = { x: player.pos.x + facing.x * 0.4, y: player.pos.y + facing.y * 0.4 };
@@ -4166,12 +5765,30 @@ function releasePass(player, team, power) {
   G.ball.kickImmuneFrom = player;
   G.ball.kickImmuneUntil = performance.now() / 1000 + 0.5;
   G.ball.shotOrigin = null; // a pass isn't a shot attempt - don't let a stale shot's range difficulty leak into an accidental goal-mouth deflection
+  // Whoever this was aimed at gets a bigger reception radius in checkPickup
+  // (see PASS_RECEPTION_RADIUS) - self-expires shortly after, so it can't
+  // linger and give some unrelated later loose ball an unfair magnet.
+  G.ball.passTarget = target;
+  G.ball.passTargetUntil = performance.now() / 1000 + 4;
+  // Control deliberately does NOT jump to the receiver here - it switches
+  // naturally once they actually get the ball (checkPickup sets
+  // G.ball.owner and calls autoAssignControl), same as any other pickup.
+  // Switching instantly on the kick meant the human took over the receiver
+  // before the ball arrived, and since aiMovePlayer skips human-controlled
+  // players, nothing was left steering them into the ball's path - they'd
+  // just stand still while a fast pass sailed past instead of drifting
+  // there under normal AI positioning like they do right up until the catch.
 }
 
-// `aim` (-1..1, left post to right post) is only passed for a human-steered
-// dead ball (penalty/free kick/practice - see isAimableShotSituation) - every
-// other shot (AI takers, open play) keeps the existing random-but-skill-
-// weighted targeting by leaving it undefined.
+// `aim` is either:
+// - an object { x, y } - a free-aimed world-space direction from the Shoot
+//   joystick (see bindShootJoystick), used for open-play shots aimed at any
+//   angle, not just a spot along the goal line - power auto-assists toward
+//   whatever's needed from this range, see the distToGoal block below.
+// - a number -1..1 (left post to right post) - a human-steered dead ball
+//   (penalty/free kick/corner - see isAimableShotSituation).
+// - null/undefined - every other shot (AI takers, an un-aimed open-play tap)
+//   keeps the existing random-but-skill-weighted auto-targeting.
 function releaseShot(player, team, power, aim) {
   SFX.kick();
   if (power > 0.7) shakeScreen(); // a real thump of a strike
@@ -4179,7 +5796,29 @@ function releaseShot(player, team, power, aim) {
   const goalY = PITCH_WID / 2;
 
   let aimPoint;
-  if (aim != null) {
+  if (aim && typeof aim === 'object') {
+    // The direction IS the shot (not a spot picked along the goal line),
+    // so this reads correctly from any angle rather than only face-on.
+    // Finishing still adds a little real wobble on top - even a deliberate
+    // aim isn't a laser regardless of skill.
+    const accuracy = clamp(player.finishing, 0.6, 1.5);
+    const wobbleAngle = clamp((1.3 - accuracy) * 0.25, 0, 0.3);
+    const dir0 = rotateVec(norm(aim), rand(-wobbleAngle, wobbleAngle));
+    const reach = PITCH_LEN * 1.3; // comfortably past any real target, so the projected point is always well beyond the goal
+    aimPoint = { x: player.pos.x + dir0.x * reach, y: player.pos.y + dir0.y * reach };
+    G.stats.shots[player.__team]++;
+    const tGoal = dir0.x !== 0 ? (goalX - player.pos.x) / dir0.x : Infinity;
+    const crossY = player.pos.y + dir0.y * tGoal;
+    if (tGoal > 0 && Math.abs(crossY - goalY) <= GOAL_WIDTH / 2) G.stats.shotsOnTarget[player.__team]++;
+    // A joystick flick from distance shouldn't also require holding for a
+    // full power charge just to reach goal - power auto-assists toward
+    // whatever's actually needed to trouble the keeper from this range,
+    // same idea as releasePass's distance assist. Holding longer still
+    // adds more on top for a real thump.
+    const distToGoal = dist(player.pos, { x: goalX, y: goalY });
+    const autoPower = clamp(0.35 + distToGoal / (G.skill.shootRange * 1.6), 0.35, 1);
+    power = Math.max(power, autoPower);
+  } else if (aim != null) {
     // The intended spot comes from where they steered the marker, with some
     // wobble based on finishing and how close to the post they're going -
     // safer down the middle is easier to execute than threading it right
@@ -4250,7 +5889,7 @@ function updateBall(dt) {
 
   // normal pitch friction - skiddier in the rain, see RAIN_FRICTION_MULT
   if (speed > 0.01) {
-    const decel = 3.2 * (G.weather === 'rain' ? RAIN_FRICTION_MULT : 1) * dt;
+    const decel = PITCH_FRICTION * (G.weather === 'rain' ? RAIN_FRICTION_MULT : 1) * dt;
     const newSpeed = Math.max(0, speed - decel);
     const dir = norm(b.vel);
     b.vel = { x: dir.x * newSpeed, y: dir.y * newSpeed };
@@ -4291,13 +5930,15 @@ function checkPickup() {
   const b = G.ball;
   if (b.owner) return;
   const now = performance.now() / 1000;
-  let best = null, bestD = PICKUP_RADIUS;
+  const isPassTarget = b.passTarget && now < b.passTargetUntil;
+  let best = null, bestD = Infinity;
   for (const team of G.teams) {
     for (const p of team.players) {
       if (p.sentOff) continue;
       if (p === b.kickImmuneFrom && now < b.kickImmuneUntil) continue;
+      const radius = (isPassTarget && p === b.passTarget) ? PASS_RECEPTION_RADIUS : PICKUP_RADIUS;
       const d = dist(p.pos, b.pos);
-      if (d < bestD) { bestD = d; best = p; }
+      if (d < radius && d < bestD) { bestD = d; best = p; }
     }
   }
   if (best) {
@@ -4352,7 +5993,10 @@ function checkGoalkeeperSmother() {
   const now = performance.now() / 1000;
   if (now - (gk.lastSmotherTry || 0) < GK_SMOTHER_RETRY_SEC) return false;
   gk.lastSmotherTry = now;
-  if (Math.random() >= clamp(GK_SMOTHER_CHANCE * gk.reflexes, 0.05, 0.95)) return false;
+  // Diving, not Reflexes - smothering the ball at an onrushing attacker's
+  // feet is a reach/dive action, distinct from reacting to a struck shot
+  // (see resolveGoalAttempt below).
+  if (Math.random() >= clamp(GK_SMOTHER_CHANCE * gkDiving(gk), 0.05, 0.95)) return false;
   SFX.catch();
   b.owner = gk;
   b.vel = { x: 0, y: 0 };
@@ -4403,16 +6047,35 @@ function resolveGoalAttempt(endDir) {
   const gk = defender.players.find(p => p.isGK);
   const b = G.ball;
   const goalPos = { x: endDir === 1 ? PITCH_LEN : 0, y: PITCH_WID / 2 };
-  const distFactor = b.shotOrigin ? shotDistanceFactor(dist(b.shotOrigin, goalPos)) : 1;
+  const rawDistFactor = b.shotOrigin ? shotDistanceFactor(dist(b.shotOrigin, goalPos)) : 1;
   b.shotOrigin = null;
+  // Positioning - good angle-reading/anticipation takes some of the sting
+  // out of a genuinely awkward shot (tight angle, distance) rather than
+  // just being another flat multiplier alongside Reflexes - a well-
+  // positioned keeper is less punished by a hard chance, not just quicker
+  // to react to an easy one.
+  const posMitigation = lerp(1, 0.8, clamp((gkPositioning(gk) - 0.6) / 0.9, 0, 1));
+  const distFactor = 1 + (rawDistFactor - 1) * posMitigation;
   const saved = Math.random() < clamp(GK_SAVE_CHANCE * gk.reflexes * distFactor, 0.05, 0.95);
   if (saved) {
     SFX.catch();
-    G.ball.owner = gk;
-    G.ball.vel = { x: 0, y: 0 };
-    G.ball.pos = { x: gk.pos.x, y: gk.pos.y };
-    G.ball.lastTouchTeam = gk.__team;
-    autoAssignControl();
+    b.pos = { x: gk.pos.x, y: gk.pos.y };
+    // Handling - a poor-handling keeper doesn't always hold a save cleanly;
+    // it can spill loose right back into the six-yard box for a scramble
+    // instead of an automatic dead ball, same as a real parried save.
+    const heldCleanly = Math.random() < clamp(gkHandling(gk), 0.2, 0.97);
+    if (heldCleanly) {
+      G.ball.owner = gk;
+      G.ball.vel = { x: 0, y: 0 };
+      G.ball.lastTouchTeam = gk.__team;
+      autoAssignControl();
+    } else {
+      loseBallFrom(gk, gk.__team);
+      autoAssignControl();
+      const teamName = document.getElementById(gk.__team === 0 ? 'score-home-name' : 'score-away-name').textContent;
+      showToast('🧤 Save spilled - loose ball!', '#f97316');
+      logMatchEvent(`🧤 ${teamName} - ${playerLabel(gk)} can't hold on to it`);
+    }
   } else {
     triggerGoalSlowMo(attacker === G.teams[0] ? 0 : 1, endDir);
   }
@@ -4467,10 +6130,20 @@ function launchConfetti(color) {
 // during the goal celebration - purely local on each side (host records its
 // own live sim, the guest records whatever it's already rendering via
 // interpolateShadowState), so no network message is needed to sync it.
-// ~3s of real build-up at ~60fps - played back at half-speed (see
-// stepGoalReplay), so this is a ~6s clip, long enough to actually show the
-// shot/goal itself rather than cutting off right as it happens.
-const REPLAY_BUFFER_MAX = 180;
+// The last REPLAY_WINDOW_MS of *real* build-up - played back at half-speed
+// (see stepGoalReplay), so this is roughly a 6s clip, long enough to
+// actually show the shot/goal itself rather than cutting off right as it
+// happens. Trimmed by wall-clock time rather than a fixed frame count -
+// recordReplayFrame runs once per rendered frame (see loop()), and frame
+// rate varies by device (a 120Hz phone records twice as many frames per
+// second as a 60Hz one), so a frame-count cutoff would silently buffer a
+// different amount of real time depending on hardware. Timestamping each
+// frame and trimming by age keeps this genuinely "last 3 seconds" everywhere.
+const REPLAY_WINDOW_MS = 3000;
+// Skip showing a clip at all if there isn't at least this much real history
+// buffered yet (e.g. a goal seconds after kickoff) - caller runs onDone
+// itself immediately in that case, same as before.
+const REPLAY_MIN_BUILDUP_MS = 1000;
 function snapshotPositions() {
   return {
     p: G.teams.map(team => team.players.map(p => ({ x: p.pos.x, y: p.pos.y, vx: p.vel.x, vy: p.vel.y }))),
@@ -4487,16 +6160,17 @@ function applyPositions(snap) {
 }
 function recordReplayFrame() {
   if (G.replay.active || !G.teams[0] || !G.teams[1]) return;
-  G.replayBuffer.push(snapshotPositions());
-  if (G.replayBuffer.length > REPLAY_BUFFER_MAX) G.replayBuffer.shift();
+  const now = performance.now();
+  G.replayBuffer.push({ t: now, snap: snapshotPositions() });
+  while (G.replayBuffer.length > 1 && now - G.replayBuffer[0].t > REPLAY_WINDOW_MS) G.replayBuffer.shift();
 }
 // Returns true if a clip actually started (onDone will be called once it
 // finishes); false if there wasn't enough build-up recorded to bother with
 // (e.g. a goal seconds after kickoff) - caller should run onDone itself then.
 function startGoalReplay(onDone) {
-  if (G.replayBuffer.length < 15) return false;
+  if (!G.replayBuffer.length || performance.now() - G.replayBuffer[0].t < REPLAY_MIN_BUILDUP_MS) return false;
   G.replay.restoreState = snapshotPositions();
-  G.replay.frames = G.replayBuffer.slice();
+  G.replay.frames = G.replayBuffer.map(f => f.snap);
   G.replay.idx = 0;
   G.replay.everyOther = false;
   G.replay.active = true;
@@ -4528,8 +6202,16 @@ function endGoalReplay() {
 function scoreGoal(scoringIdx) {
   G.stoppageEvents++;
   G.teams[scoringIdx].score++;
+  if (G.momentum) {
+    const concedingIdx = 1 - scoringIdx;
+    G.momentum[scoringIdx] = clamp(G.momentum[scoringIdx] + MOMENTUM_GOAL_BOOST, -1, 1);
+    G.momentum[concedingIdx] = clamp(G.momentum[concedingIdx] - MOMENTUM_CONCEDE_HIT, -1, 1);
+  }
   document.getElementById('score-home').textContent = G.teams[0].score;
   document.getElementById('score-away').textContent = G.teams[1].score;
+  const scoredBadge = document.getElementById(scoringIdx === 0 ? 'score-home' : 'score-away');
+  scoredBadge.classList.add('score-pop');
+  setTimeout(() => scoredBadge.classList.remove('score-pop'), 400);
   SFX.goal();
   vibrate([80, 40, 80]);
   G.confettiTimeouts.forEach(clearTimeout);
@@ -4547,6 +6229,10 @@ function scoreGoal(scoringIdx) {
   // hold the banner back until the clip finishes rather than showing both at once.
   const revealGoalBanner = () => {
     document.getElementById('goal-banner-text').textContent = `GOAL! ${scorerLabel}`;
+    const homeName = document.getElementById('score-home-name').textContent;
+    const awayName = document.getElementById('score-away-name').textContent;
+    document.getElementById('goal-banner-score').textContent = `${homeName} ${G.teams[0].score} - ${G.teams[1].score} ${awayName}`;
+    setTeamCrest('goal-banner-crest', { name: scoringIdx === 0 ? homeName : awayName, shirt: G.teams[scoringIdx].shirt });
     document.getElementById('goal-banner').style.setProperty('--team-color', G.teams[scoringIdx].shirt);
     document.getElementById('goal-banner').classList.remove('hidden');
   };
@@ -4663,6 +6349,17 @@ function handleHumanMovement(dt) {
     G.controlled.vel = { x: 0, y: 0 };
     return;
   }
+  // Same steerable-dead-ball treatment for a throw-in, charged on the PASS
+  // button instead of shoot (a throw-in was never shootable) - see
+  // isAimableThrowinSituation/releasePass's aim handling.
+  if (G.ball.owner === G.controlled && G.charge.pass && isAimableThrowinSituation()) {
+    let steer = G.joystick.x;
+    if (G.keysDown[KEYS.left]) steer -= 1;
+    if (G.keysDown[KEYS.right]) steer += 1;
+    G.shotAim = clamp(G.shotAim + steer * dt * 1.2, -1, 1);
+    G.controlled.vel = { x: 0, y: 0 };
+    return;
+  }
   // Locked at the restart spot until you release it - a real penalty/free-kick
   // taker doesn't wander off their run-up either.
   if (G.ball.owner === G.controlled && G.restart) return;
@@ -4679,7 +6376,7 @@ function handleHumanMovement(dt) {
   drainStamina(p, dt, pushAmount > 0.6 ? 1.4 : pushAmount > 0.1 ? 1.0 : 0.5);
   if (pushAmount > 0.05) {
     const dir = norm({ x: mx, y: my });
-    const speed = HUMAN_SPEED * p.pace * pushAmount * lerp(0.7, 1.0, p.stamina) * finalThirdMultiplier(G.teams[0], 'pace');
+    const speed = HUMAN_SPEED * p.pace * pushAmount * lerp(0.7, 1.0, p.stamina) * finalThirdMultiplier(G.teams[0], 'pace') * momentumMultiplier(G.teams[0], 'pace');
     approachVelocity(p, { x: dir.x * speed, y: dir.y * speed }, PLAYER_ACCEL, dt);
     p.facing = dir;
   } else {
@@ -4700,7 +6397,7 @@ function tryHumanTackle() {
   const b = G.ball;
   if (!b.owner || b.owner.__team === 0) return;
   if (dist(G.controlled.pos, b.pos) > TACKLE_RADIUS) return;
-  if (Math.random() < clamp(HUMAN_TACKLE_CHANCE * G.controlled.tackling * finalThirdMultiplier(G.teams[0], 'tackle'), 0.05, 0.95)) {
+  if (Math.random() < clamp(HUMAN_TACKLE_CHANCE * G.controlled.tackling * finalThirdMultiplier(G.teams[0], 'tackle') * momentumMultiplier(G.teams[0], 'tackle') / carrierResistance(b.owner), 0.05, 0.95)) {
     SFX.tackle();
     shakeScreen();
     vibrate(25);
@@ -4728,7 +6425,7 @@ function tryRemoteTackle() {
   const b = G.ball;
   if (!p || !b.owner || b.owner.__team === 1) return;
   if (dist(p.pos, b.pos) > TACKLE_RADIUS) return;
-  if (Math.random() < clamp(HUMAN_TACKLE_CHANCE * p.tackling * finalThirdMultiplier(G.teams[1], 'tackle'), 0.05, 0.95)) {
+  if (Math.random() < clamp(HUMAN_TACKLE_CHANCE * p.tackling * finalThirdMultiplier(G.teams[1], 'tackle') * momentumMultiplier(G.teams[1], 'tackle') / carrierResistance(b.owner), 0.05, 0.95)) {
     SFX.tackle();
     shakeScreen();
     vibrate(25);
@@ -4765,28 +6462,39 @@ function tryRemoteSwitchPlayer() {
   if (mine.length) G.controlled2 = mine[0];
 }
 
+// A deliberate Shoot-joystick drag always wins (it's the most specific,
+// explicit input) - otherwise falls back to the existing 1D dead-ball aim,
+// otherwise no aim at all (auto-target/cone-nearest-teammate).
+function resolveShootAim(forPlayer) {
+  if (G.shootDragMag > SHOOT_DRAG_THRESHOLD) return { x: G.shootAimVec.x, y: G.shootAimVec.y };
+  return isAimableShotSituation(forPlayer) ? G.shotAim : undefined;
+}
+
 function onChargeRelease(kind) {
   const startKey = kind === 'pass' ? 'passStart' : 'shootStart';
   const held = clamp((performance.now() - G.charge[startKey]) / 1000, 0, 2);
   const power = held / 2;
   G.charge[kind] = false;
   // The guest computes its own power locally (using its own clock/charge
-  // timers, same math as above) and, for a steerable dead ball, its own
-  // G.shotAim too (see guestSteerAim) - sending the final numbers directly
-  // means the host doesn't need to guess or re-derive anything.
+  // timers, same math as above) and, for a steerable dead ball or a
+  // joystick-aimed shot, its own aim too (see guestSteerAim/bindShootJoystick)
+  // - sending the final numbers directly means the host doesn't need to
+  // guess or re-derive anything.
   if (G.online && G.online.role === 'guest') {
     if (G.state !== STATE.PLAYING) return;
-    const aim = (kind === 'shoot' && isAimableShotSituation(G.controlled)) ? G.shotAim : undefined;
+    const aim = kind === 'shoot' ? resolveShootAim(G.controlled)
+      : (kind === 'pass' && isAimableThrowinSituation(G.controlled)) ? G.shotAim
+      : undefined;
     sendOnlineMessage({ type: 'chargeRelease', kind, power, aim });
     return;
   }
   if (G.state !== STATE.PLAYING) return;
   const p = G.controlled;
   if (!p || G.ball.owner !== p) return;
-  const restartMustPass = G.restart && G.restart.kind !== 'penalty' && G.restart.kind !== 'freekick';
-  if (kind === 'shoot' && restartMustPass) return; // most restarts must be released as a pass; penalties/free kicks can be shot
-  if (kind === 'pass') releasePass(p, G.teams[0], power);
-  else releaseShot(p, G.teams[0], power, isAimableShotSituation() ? G.shotAim : null);
+  const restartMustPass = G.restart && G.restart.kind !== 'penalty' && G.restart.kind !== 'freekick' && G.restart.kind !== 'corner';
+  if (kind === 'shoot' && restartMustPass) return; // most restarts must be released as a pass; penalties/free kicks/corners can be aimed and shot
+  if (kind === 'pass') releasePass(p, G.teams[0], power, isAimableThrowinSituation() ? G.shotAim : undefined);
+  else releaseShot(p, G.teams[0], power, resolveShootAim());
 }
 
 // Host-only mirror of onChargeRelease for the online guest's player - power
@@ -4798,9 +6506,9 @@ function onRemoteChargeRelease(kind, power, aim) {
   if (G.state !== STATE.PLAYING) return;
   const p = G.controlled2;
   if (!p || G.ball.owner !== p) return;
-  const restartMustPass = G.restart && G.restart.kind !== 'penalty' && G.restart.kind !== 'freekick';
+  const restartMustPass = G.restart && G.restart.kind !== 'penalty' && G.restart.kind !== 'freekick' && G.restart.kind !== 'corner';
   if (kind === 'shoot' && restartMustPass) return;
-  if (kind === 'pass') releasePass(p, G.teams[1], power);
+  if (kind === 'pass') releasePass(p, G.teams[1], power, aim);
   else releaseShot(p, G.teams[1], power, aim);
 }
 
@@ -4819,7 +6527,7 @@ function applyGuestMoveInput(dt) {
   drainStamina(p, dt, pushAmount > 0.6 ? 1.4 : pushAmount > 0.1 ? 1.0 : 0.5);
   if (pushAmount > 0.05) {
     const dir = norm({ x: mv.x, y: mv.y });
-    const speed = HUMAN_SPEED * p.pace * pushAmount * lerp(0.7, 1.0, p.stamina) * finalThirdMultiplier(G.teams[1], 'pace');
+    const speed = HUMAN_SPEED * p.pace * pushAmount * lerp(0.7, 1.0, p.stamina) * finalThirdMultiplier(G.teams[1], 'pace') * momentumMultiplier(G.teams[1], 'pace');
     approachVelocity(p, { x: dir.x * speed, y: dir.y * speed }, PLAYER_ACCEL, dt);
     p.facing = dir;
   } else {
@@ -4841,22 +6549,39 @@ function enterHalftime() {
   G.state = STATE.HALFTIME;
   document.getElementById('half-label').textContent = 'Half Time';
   document.getElementById('halftime-overlay').classList.remove('hidden');
-  let remaining = 30;
-  document.getElementById('halftime-timer').textContent = remaining;
-  G.halftimeInterval = setInterval(() => {
-    remaining--;
-    document.getElementById('halftime-timer').textContent = Math.max(remaining, 0);
-    if (remaining <= 0) endHalftime();
-  }, 1000);
+  G.halftimeRemaining = 15;
+  document.getElementById('halftime-timer').textContent = G.halftimeRemaining;
+  startHalftimeInterval();
   // enterHalftime only ever runs on the host (called from updateClock, which
   // the guest never runs) - tell the guest to show its own halftime overlay.
   if (G.online && G.online.role === 'host') sendOnlineMessage({ type: 'stateChange', state: STATE.HALFTIME });
 }
 
+// Split out from enterHalftime so a trip to the Subs page (which shares this
+// same 15s-style auto-return pattern) can pause the countdown - stored on
+// G.halftimeRemaining rather than a local closure var - and resume it
+// afterwards instead of it silently keeping running underneath the subs page.
+function startHalftimeInterval() {
+  if (G.halftimeInterval) clearInterval(G.halftimeInterval);
+  G.halftimeInterval = setInterval(() => {
+    G.halftimeRemaining--;
+    document.getElementById('halftime-timer').textContent = Math.max(G.halftimeRemaining, 0);
+    if (G.halftimeRemaining <= 0) endHalftime();
+  }, 1000);
+}
+
 // A breather for everyone still on the pitch - not a full reset, fatigue
 // still carries into the next period, same idea as a real half-time break.
 function recoverStamina(amount) {
-  G.teams.forEach(team => team.players.forEach(p => { p.stamina = clamp(p.stamina + amount, 0.2, 1); }));
+  G.teams.forEach(team => team.players.forEach(p => {
+    // Bounded by the player's own ceiling too, same as in-play recovery
+    // (drainStamina) - a half-time breather still can't undo a lowered
+    // ceiling from having run themselves into the ground all half.
+    const ceiling = p.staminaCeiling != null ? p.staminaCeiling : 1;
+    const before = p.stamina;
+    p.stamina = clamp(p.stamina + amount, 0.2, ceiling);
+    trackStaminaRecovery(p, p.stamina - before);
+  }));
 }
 
 function endHalftime() {
@@ -4888,10 +6613,32 @@ const GOAL_MILESTONES = [1, 10, 25, 50, 100];
 const WIN_MILESTONES = [1, 5, 10, 25];
 function loadLifetime() {
   try {
-    return Object.assign({ goals: 0, wins: 0, matches: 0, cupsWon: 0, uclWon: 0, uelWon: 0 }, JSON.parse(localStorage.getItem(LIFETIME_KEY)));
+    return Object.assign({ goals: 0, wins: 0, matches: 0, cupsWon: 0, uclWon: 0, uelWon: 0, onlineWins: 0, onlineDraws: 0, onlineLosses: 0 }, JSON.parse(localStorage.getItem(LIFETIME_KEY)));
   } catch (e) {
-    return { goals: 0, wins: 0, matches: 0, cupsWon: 0, uclWon: 0, uelWon: 0 };
+    return { goals: 0, wins: 0, matches: 0, cupsWon: 0, uclWon: 0, uelWon: 0, onlineWins: 0, onlineDraws: 0, onlineLosses: 0 };
   }
+}
+// myScore/oppScore always from the LOCAL player's own perspective - the
+// host and guest are on opposite sides of G.teams[0]/[1] (host is always
+// team 0), so each caller passes its own pair in rather than this reading
+// G.teams directly.
+function recordOnlineResult(myScore, oppScore) {
+  const lt = loadLifetime();
+  if (myScore > oppScore) lt.onlineWins++;
+  else if (myScore === oppScore) lt.onlineDraws++;
+  else lt.onlineLosses++;
+  saveLifetime(lt);
+}
+// Shown on the online-menu-screen (see showScreen's id==='online-menu-screen'
+// hook) - nothing on this screen carried a record of past online games
+// before recordOnlineResult existed.
+function renderOnlineHistory() {
+  const lt = loadLifetime();
+  const played = lt.onlineWins + lt.onlineDraws + lt.onlineLosses;
+  const el = document.getElementById('online-history');
+  if (!played) { el.innerHTML = ''; return; }
+  const tile = (label, value) => `<div class="season-stat-chip"><span class="stat-value">${value}</span><span class="stat-label">${label}</span></div>`;
+  el.innerHTML = tile('Wins', lt.onlineWins) + tile('Draws', lt.onlineDraws) + tile('Losses', lt.onlineLosses);
 }
 function saveLifetime(lt) {
   try { localStorage.setItem(LIFETIME_KEY, JSON.stringify(lt)); } catch (e) { /* localStorage unavailable - lifetime tracking just won't persist */ }
@@ -5015,7 +6762,7 @@ function startExtraTimeSecondHalf() {
 }
 
 function enterFulltime() {
-  if (CUP && G.teams[0].score === G.teams[1].score) {
+  if (CUP && cupNeedsExtraTime()) {
     if (!G.extraTime) {
       startExtraTime();
       return;
@@ -5043,6 +6790,9 @@ function finalizeFulltime(shootoutResult) {
   // ever get here through the plain else branch below anyway, but hide it
   // explicitly regardless of role so clicking it can't strand the guest.
   document.getElementById('btn-rematch').classList.toggle('hidden', inSeason || inCup || inCareer || !!G.online);
+  document.getElementById('btn-online-rematch').classList.toggle('hidden', !G.online);
+  document.getElementById('btn-online-rematch').disabled = false;
+  document.getElementById('online-rematch-status').classList.add('hidden');
   document.getElementById('btn-continue-season').classList.toggle('hidden', !inSeason);
   document.getElementById('btn-continue-cup').classList.toggle('hidden', !inCup);
   document.getElementById('btn-continue-career').classList.toggle('hidden', !inCareer);
@@ -5053,6 +6803,7 @@ function finalizeFulltime(shootoutResult) {
   } else if (inCareer) {
     recordCareerResult(); // same idea - a career result needs an explicit look
   } else {
+    if (G.online) recordOnlineResult(G.teams[0].score, G.teams[1].score); // host is always team 0 - see recordOnlineResult
     G.fulltimeTimeout = setTimeout(() => goToMainMenu(), 12000);
   }
   // Ship the already-rendered DOM back verbatim rather than re-deriving it -
@@ -5174,6 +6925,7 @@ function update(dt) {
   updateBall(dt);
   autoAssignControl();
   updateCrowdTension();
+  updateMomentum(dt);
   if (G.ball.owner) G.stats.possession[G.ball.owner.__team] += dt;
   if (G.state === STATE.PLAYING) updateClock(dt);
   maybeBroadcastSnapshot();
@@ -5532,26 +7284,58 @@ function drawTackleRange(ctx, myTeam = 0) {
 
 // A dashed sightline from the taker to a marker in the goal, only shown while
 // actually charging an aimable dead ball - see isAimableShotSituation/G.shotAim.
-function drawAimMarker(ctx) {
-  if (!G.controlled || G.ball.owner !== G.controlled || !G.charge.shoot || !isAimableShotSituation()) return;
-  const team = G.teams[G.controlled.__team];
-  const goalX = team.attackDir === 1 ? PITCH_LEN : 0;
-  const goalY = PITCH_WID / 2;
-  const markerY = goalY + G.shotAim * (GOAL_WIDTH / 2 - 0.5);
+// Shared by every flavour of aim marker below - a dashed line from the
+// carrier to a world-space point, with a solid dot at the far end.
+function drawAimLine(ctx, fromX, fromY, toX, toY) {
   ctx.save();
   ctx.strokeStyle = '#ff1e1e';
   ctx.lineWidth = 2;
   ctx.setLineDash([4, 3]);
   ctx.beginPath();
-  ctx.moveTo(toCanvasX(G.controlled.pos.x), toCanvasY(G.controlled.pos.y));
-  ctx.lineTo(toCanvasX(goalX), toCanvasY(markerY));
+  ctx.moveTo(toCanvasX(fromX), toCanvasY(fromY));
+  ctx.lineTo(toCanvasX(toX), toCanvasY(toY));
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.fillStyle = '#ff1e1e';
   ctx.beginPath();
-  ctx.arc(toCanvasX(goalX), toCanvasY(markerY), 4, 0, Math.PI * 2);
+  ctx.arc(toCanvasX(toX), toCanvasY(toY), 4, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
+}
+
+// How far out (world metres) the open-play shoot-joystick's feint arrow
+// reaches - just needs to read clearly as a direction, not model the
+// actual shot's real travel distance.
+const SHOOT_JOYSTICK_MARKER_DIST = 18;
+
+function drawAimMarker(ctx) {
+  if (!G.controlled || G.ball.owner !== G.controlled) return;
+  if (G.charge.shoot && G.shootDragMag > SHOOT_DRAG_THRESHOLD) {
+    // Free-aimed via the Shoot joystick, in ANY situation (open play or a
+    // dead ball) - takes priority over the 1D dead-ball aim below, same
+    // as resolveShootAim's priority when the shot actually fires.
+    const dir = norm(G.shootAimVec);
+    const endX = clamp(G.controlled.pos.x + dir.x * SHOOT_JOYSTICK_MARKER_DIST, 0, PITCH_LEN);
+    const endY = clamp(G.controlled.pos.y + dir.y * SHOOT_JOYSTICK_MARKER_DIST, 0, PITCH_WID);
+    drawAimLine(ctx, G.controlled.pos.x, G.controlled.pos.y, endX, endY);
+  } else if (G.charge.shoot && isAimableShotSituation()) {
+    const team = G.teams[G.controlled.__team];
+    const goalX = team.attackDir === 1 ? PITCH_LEN : 0;
+    const goalY = PITCH_WID / 2;
+    const markerY = goalY + G.shotAim * (GOAL_WIDTH / 2 - 0.5);
+    drawAimLine(ctx, G.controlled.pos.x, G.controlled.pos.y, goalX, markerY);
+  } else if (G.charge.pass && isAimableThrowinSituation()) {
+    // No goal to draw toward here - just the actual thrown line, same
+    // direction math as releasePass's aimed-throw-in branch, extended a
+    // fixed distance so it reads clearly as an aim line rather than a dot.
+    const team = G.teams[G.controlled.__team];
+    const intoField = G.controlled.pos.y < PITCH_WID / 2 ? 1 : -1;
+    const throwDir = rotateVec({ x: 0, y: intoField }, clamp(G.shotAim, -1, 1) * THROWIN_AIM_ANGLE * team.attackDir);
+    const THROW_MARKER_DIST = 16;
+    const endX = G.controlled.pos.x + throwDir.x * THROW_MARKER_DIST;
+    const endY = clamp(G.controlled.pos.y + throwDir.y * THROW_MARKER_DIST, 0, PITCH_WID);
+    drawAimLine(ctx, G.controlled.pos.x, G.controlled.pos.y, endX, endY);
+  }
 }
 
 // A small fuel-gauge-style bar above the controlled player's head - the
@@ -5849,7 +7633,7 @@ function loop(ts) {
 // UI wiring
 // ============================================================
 function showScreen(id) {
-  ['main-menu', 'setup-screen', 'season-setup-screen', 'season-table-screen', 'cup-setup-screen', 'cup-progress-screen', 'settings-screen', 'stats-screen', 'career-slots-screen', 'career-club-screen', 'career-dashboard-screen', 'career-lineup-screen', 'career-table-screen', 'career-history-screen', 'career-transfer-screen', 'online-menu-screen', 'online-host-screen', 'online-join-screen', 'online-teampick-screen', 'match-screen'].forEach(s => {
+  ['main-menu', 'setup-screen', 'season-setup-screen', 'season-table-screen', 'cup-setup-screen', 'cup-progress-screen', 'settings-screen', 'stats-screen', 'career-slots-screen', 'career-club-screen', 'career-dashboard-screen', 'career-lineup-screen', 'career-table-screen', 'career-history-screen', 'career-transfer-screen', 'online-menu-screen', 'online-host-screen', 'online-join-screen', 'online-quickmatch-screen', 'online-teampick-screen', 'match-screen', 'subs-screen'].forEach(s => {
     document.getElementById(s).classList.toggle('hidden', s !== id);
   });
   // Single hook point for every path back to the menu (goToMainMenu's full
@@ -5857,6 +7641,7 @@ function showScreen(id) {
   // directly) - so the Continue Career card is always up to date regardless
   // of which one brought you here.
   if (id === 'main-menu') updateMenuContinueCareerCard();
+  if (id === 'online-menu-screen') renderOnlineHistory();
   // Home shortcut hidden on the main menu itself (redundant) and mid-match
   // (has its own deliberate Pause -> Quit flow instead) - shown everywhere else.
   document.getElementById('btn-home').classList.toggle('hidden', id === 'main-menu' || id === 'match-screen');
@@ -5888,9 +7673,11 @@ function goToMainMenu() {
   document.getElementById('fulltime-overlay').classList.add('hidden');
   document.getElementById('goal-banner').classList.add('hidden');
   document.getElementById('online-lost-overlay').classList.add('hidden');
+  document.getElementById('online-reconnecting-overlay').classList.add('hidden');
   document.getElementById('shootout-overlay').classList.add('hidden');
   document.getElementById('season-complete-overlay').classList.add('hidden');
-  document.getElementById('subs-overlay').classList.add('hidden');
+  document.getElementById('cup-trophy-overlay').classList.add('hidden');
+  stopSubsAutoTimer();
   // Undo the online guest's "hide substitutions" (see guestHandleMessage) -
   // otherwise a later offline match in this same tab would stay stuck
   // without a Subs button from a previous session as guest.
@@ -5989,21 +7776,36 @@ function importSaveDataFromFile(file) {
 
 // ---------- Match Setup (Play) screen - custom team/clock/rank UI ----------
 const HALF_LENGTH_OPTIONS = [1, 2, 3, 5, 10];
-// Bronze..Champion, in order - shifted two tiers harder than the original
+// Bronze..Invincible, in order - shifted two tiers harder than the original
 // easy..champion ladder (see SKILLS/DIFFICULTY_OPPONENT_BOOST); a saved
 // preference of 'easy'/'medium' from before this change no longer validates
 // here and falls back to the new default rank instead.
-const RANK_SKILLS = ['hard', 'expert', 'legendary', 'champion', 'grandmaster', 'legend'];
+const RANK_SKILLS = ['hard', 'expert', 'legendary', 'champion', 'grandmaster', 'legend', 'mythic', 'invincible'];
+
+// Arrow-key difficulty browsing, same idea as the main hub's mode browser -
+// armed by clicking any rank tile (see the 4 rank-tile click handlers
+// below), then ArrowLeft/ArrowRight step through RANK_SKILLS one at a time
+// without leaving the setup screen you're on. Only one setup screen is ever
+// visible at once, so screenId just guards against a stale arm from a
+// screen you've since navigated away from still responding to arrow keys.
+let activeRankPicker = null; // { screenId, setupObj, render }
+function armRankPicker(screenId, setupObj, render) {
+  activeRankPicker = { screenId, setupObj, render };
+}
+
 const playSetup = { yourIdx: 0, oppIdx: 1, halfIdx: 1, skillKey: 'expert' };
 
 function renderPlaySetupTeam(which) {
   const idx = which === 'your' ? playSetup.yourIdx : playSetup.oppIdx;
-  const def = TEAMS[idx];
+  const def = ALL_CLUBS[idx];
   const box = document.getElementById(which === 'your' ? 'setup-team-box' : 'setup-opp-box');
   const nameEl = document.getElementById(which === 'your' ? 'setup-team-name' : 'setup-opp-name');
+  const leagueEl = document.getElementById(which === 'your' ? 'setup-team-league' : 'setup-opp-league');
   box.style.setProperty('--team-color', def.shirt);
   box.style.setProperty('--team-text', readableTextColor(def.shirt));
+  styleTeamBox(box, def);
   nameEl.textContent = def.name;
+  setLeagueLabel(leagueEl, def.league);
 }
 
 // Same "skip past a collision" behaviour as the old <select> onchange pair -
@@ -6011,12 +7813,22 @@ function renderPlaySetupTeam(which) {
 // opponent along instead of letting you pick the same club twice.
 function cyclePlaySetupTeam(which, dir) {
   if (which === 'your') {
-    playSetup.yourIdx = (playSetup.yourIdx + dir + TEAMS.length) % TEAMS.length;
-    if (playSetup.yourIdx === playSetup.oppIdx) playSetup.oppIdx = (playSetup.oppIdx + dir + TEAMS.length) % TEAMS.length;
+    playSetup.yourIdx = cycleWithinLeague(playSetup.yourIdx, dir);
+    if (playSetup.yourIdx === playSetup.oppIdx) playSetup.oppIdx = cycleWithinLeague(playSetup.oppIdx, dir);
   } else {
-    playSetup.oppIdx = (playSetup.oppIdx + dir + TEAMS.length) % TEAMS.length;
-    if (playSetup.oppIdx === playSetup.yourIdx) playSetup.oppIdx = (playSetup.oppIdx + dir + TEAMS.length) % TEAMS.length;
+    playSetup.oppIdx = cycleWithinLeague(playSetup.oppIdx, dir);
+    if (playSetup.oppIdx === playSetup.yourIdx) playSetup.oppIdx = cycleWithinLeague(playSetup.oppIdx, dir);
   }
+  renderPlaySetupTeam('your');
+  renderPlaySetupTeam('opp');
+}
+
+function jumpPlaySetupLeague(which, dir) {
+  const key = which === 'your' ? 'yourIdx' : 'oppIdx';
+  const otherKey = which === 'your' ? 'oppIdx' : 'yourIdx';
+  let target = jumpToLeagueClub(playSetup[key], dir);
+  if (target === playSetup[otherKey]) target = (target + 1) % ALL_CLUBS.length; // land on the same club as the other box - just take the next one
+  playSetup[key] = target;
   renderPlaySetupTeam('your');
   renderPlaySetupTeam('opp');
 }
@@ -6040,7 +7852,7 @@ function populateSetupScreen() {
   const saved = loadSettings();
   playSetup.yourIdx = saved.yourIdx != null ? saved.yourIdx : 0;
   playSetup.oppIdx = saved.oppIdx != null ? saved.oppIdx : 1;
-  if (playSetup.yourIdx === playSetup.oppIdx) playSetup.oppIdx = (playSetup.yourIdx + 1) % TEAMS.length;
+  if (playSetup.yourIdx === playSetup.oppIdx) playSetup.oppIdx = (playSetup.yourIdx + 1) % ALL_CLUBS.length;
   const savedHalfIdx = HALF_LENGTH_OPTIONS.indexOf(saved.halfLen);
   playSetup.halfIdx = savedHalfIdx !== -1 ? savedHalfIdx : 1;
   playSetup.skillKey = saved.skillKey && RANK_SKILLS.includes(saved.skillKey) ? saved.skillKey : 'expert';
@@ -6054,12 +7866,17 @@ function populateSetupScreen() {
   document.getElementById('setup-team-next').onclick = () => cyclePlaySetupTeam('your', 1);
   document.getElementById('setup-opp-prev').onclick = () => cyclePlaySetupTeam('opp', -1);
   document.getElementById('setup-opp-next').onclick = () => cyclePlaySetupTeam('opp', 1);
+  document.getElementById('setup-team-league-prev').onclick = () => jumpPlaySetupLeague('your', -1);
+  document.getElementById('setup-team-league-next').onclick = () => jumpPlaySetupLeague('your', 1);
+  document.getElementById('setup-opp-league-prev').onclick = () => jumpPlaySetupLeague('opp', -1);
+  document.getElementById('setup-opp-league-next').onclick = () => jumpPlaySetupLeague('opp', 1);
   document.getElementById('setup-half-prev').onclick = () => cyclePlaySetupHalf(-1);
   document.getElementById('setup-half-next').onclick = () => cyclePlaySetupHalf(1);
   document.querySelectorAll('#setup-screen .rank-tile').forEach(tile => {
     tile.onclick = () => {
       playSetup.skillKey = tile.dataset.skill;
       renderPlaySetupRank();
+      armRankPicker('setup-screen', playSetup, renderPlaySetupRank);
     };
   });
 }
@@ -6068,15 +7885,22 @@ function populateSetupScreen() {
 const seasonSetup = { yourIdx: 0, halfIdx: 1, skillKey: 'expert' };
 
 function renderSeasonSetupTeam() {
-  const def = TEAMS[seasonSetup.yourIdx];
+  const def = ALL_CLUBS[seasonSetup.yourIdx];
   const box = document.getElementById('season-team-box');
   box.style.setProperty('--team-color', def.shirt);
   box.style.setProperty('--team-text', readableTextColor(def.shirt));
+  styleTeamBox(box, def);
   document.getElementById('season-team-name').textContent = def.name;
+  setLeagueLabel(document.getElementById('season-team-league'), def.league);
 }
 
 function cycleSeasonSetupTeam(dir) {
-  seasonSetup.yourIdx = (seasonSetup.yourIdx + dir + TEAMS.length) % TEAMS.length;
+  seasonSetup.yourIdx = cycleWithinLeague(seasonSetup.yourIdx, dir);
+  renderSeasonSetupTeam();
+}
+
+function jumpSeasonSetupLeague(dir) {
+  seasonSetup.yourIdx = jumpToLeagueClub(seasonSetup.yourIdx, dir);
   renderSeasonSetupTeam();
 }
 
@@ -6108,12 +7932,15 @@ function populateSeasonSetupScreen() {
 
   document.getElementById('season-team-prev').onclick = () => cycleSeasonSetupTeam(-1);
   document.getElementById('season-team-next').onclick = () => cycleSeasonSetupTeam(1);
+  document.getElementById('season-team-league-prev').onclick = () => jumpSeasonSetupLeague(-1);
+  document.getElementById('season-team-league-next').onclick = () => jumpSeasonSetupLeague(1);
   document.getElementById('season-half-prev').onclick = () => cycleSeasonSetupHalf(-1);
   document.getElementById('season-half-next').onclick = () => cycleSeasonSetupHalf(1);
   document.querySelectorAll('#season-setup-screen .rank-tile').forEach(tile => {
     tile.onclick = () => {
       seasonSetup.skillKey = tile.dataset.skill;
       renderSeasonSetupRank();
+      armRankPicker('season-setup-screen', seasonSetup, renderSeasonSetupRank);
     };
   });
 }
@@ -6122,15 +7949,22 @@ function populateSeasonSetupScreen() {
 const cupSetup = { yourIdx: 0, halfIdx: 1, skillKey: 'expert' };
 
 function renderCupSetupTeam() {
-  const def = TEAMS[cupSetup.yourIdx];
+  const def = ALL_CLUBS[cupSetup.yourIdx];
   const box = document.getElementById('cup-team-box');
   box.style.setProperty('--team-color', def.shirt);
   box.style.setProperty('--team-text', readableTextColor(def.shirt));
+  styleTeamBox(box, def);
   document.getElementById('cup-team-name').textContent = def.name;
+  setLeagueLabel(document.getElementById('cup-team-league'), def.league);
 }
 
 function cycleCupSetupTeam(dir) {
-  cupSetup.yourIdx = (cupSetup.yourIdx + dir + TEAMS.length) % TEAMS.length;
+  cupSetup.yourIdx = cycleWithinLeague(cupSetup.yourIdx, dir);
+  renderCupSetupTeam();
+}
+
+function jumpCupSetupLeague(dir) {
+  cupSetup.yourIdx = jumpToLeagueClub(cupSetup.yourIdx, dir);
   renderCupSetupTeam();
 }
 
@@ -6162,12 +7996,15 @@ function populateCupSetupScreen() {
 
   document.getElementById('cup-team-prev').onclick = () => cycleCupSetupTeam(-1);
   document.getElementById('cup-team-next').onclick = () => cycleCupSetupTeam(1);
+  document.getElementById('cup-team-league-prev').onclick = () => jumpCupSetupLeague(-1);
+  document.getElementById('cup-team-league-next').onclick = () => jumpCupSetupLeague(1);
   document.getElementById('cup-half-prev').onclick = () => cycleCupSetupHalf(-1);
   document.getElementById('cup-half-next').onclick = () => cycleCupSetupHalf(1);
   document.querySelectorAll('#cup-setup-screen .rank-tile').forEach(tile => {
     tile.onclick = () => {
       cupSetup.skillKey = tile.dataset.skill;
       renderCupSetupRank();
+      armRankPicker('cup-setup-screen', cupSetup, renderCupSetupRank);
     };
   });
 }
@@ -6201,6 +8038,7 @@ function renderCareerClubSetupTeam() {
   const box = document.getElementById('career-team-box');
   box.style.setProperty('--team-color', def.shirt);
   box.style.setProperty('--team-text', readableTextColor(def.shirt));
+  styleTeamBox(box, def);
   document.getElementById('career-team-name').textContent = def.name;
 }
 function cycleCareerClubSetupTeam(dir) {
@@ -6235,6 +8073,7 @@ function populateCareerClubScreen() {
     tile.onclick = () => {
       careerClubSetup.skillKey = tile.dataset.skill;
       renderCareerClubSetupRank();
+      armRankPicker('career-club-screen', careerClubSetup, renderCareerClubSetupRank);
     };
   });
 }
@@ -6261,16 +8100,19 @@ const CAREER_MEETING_COPY = {
       `A hard meeting with ${cp.name} about their future away from the club...`,
     ]),
   },
-  renew: {
-    badge: 'CONTRACT TALKS', title: 'RENEWAL MEETING',
-    flavor: cp => pick([
-      `${cp.name}'s agent arrives to discuss a new deal...`,
-      `You sit down with ${cp.name} to talk about extending their stay...`,
-      `Renewal talks begin with ${cp.name}...`,
-    ]),
-  },
 };
 let careerMeetingOnConfirm = null;
+// The plain one-shot path (Release, and anything else routed through
+// showCareerMeeting) - hides the overlay then runs whatever was queued.
+// Named/hoisted so both the init-time wiring and showCareerMeeting itself
+// can restore it onto the shared confirm button - see the comment in
+// showCareerMeeting for why that restoration is needed.
+function careerMeetingConfirmDispatch() {
+  document.getElementById('career-meeting-overlay').classList.add('hidden');
+  const cb = careerMeetingOnConfirm;
+  careerMeetingOnConfirm = null;
+  if (cb) cb();
+}
 function showCareerMeeting({ kind, cp, confirmLabel, extraRows, onConfirm }) {
   const copy = CAREER_MEETING_COPY[kind];
   document.getElementById('career-meeting-badge').textContent = copy.badge;
@@ -6291,8 +8133,15 @@ function showCareerMeeting({ kind, cp, confirmLabel, extraRows, onConfirm }) {
   document.getElementById('career-meeting-tiers').classList.add('hidden');
   const confirmBtn = document.getElementById('btn-career-meeting-confirm');
   confirmBtn.classList.remove('hidden');
+  confirmBtn.disabled = false;
   confirmBtn.textContent = confirmLabel;
   confirmBtn.classList.toggle('meeting-confirm-danger', kind === 'release');
+  // The negotiation flow (startSignNegotiation) drives this same button
+  // through its own step-by-step onclick handlers rather than this generic
+  // dispatcher (Next shouldn't close the overlay the way a one-shot Confirm
+  // does) - restore the shared dispatcher here so a plain Release/Renew
+  // meeting works correctly even right after a negotiation ran.
+  confirmBtn.onclick = careerMeetingConfirmDispatch;
   careerMeetingOnConfirm = onConfirm;
   document.getElementById('career-meeting-overlay').classList.remove('hidden');
 }
@@ -6304,34 +8153,64 @@ function showCareerMeeting({ kind, cp, confirmLabel, extraRows, onConfirm }) {
 // specifically for this. Reuses the same overlay showCareerMeeting uses for
 // Release/Renew, just driven manually step-by-step instead of through that
 // one-shot helper.
+// Wider spread than before (2 tiers per side of "fair") so there's a real
+// low-risk/high-risk choice on both fee and wage rather than just 3 flat
+// options. pct still measures the offer against value/wage, chance is that
+// SPECIFIC offer's own odds - see computeNegotiationChance for how fee/wage/
+// contract-length all combine into one final acceptance % at the review step.
 const FEE_OFFER_TIERS = [
-  { label: 'Lowball Bid', pct: -0.15, chance: 0.35 },
-  { label: 'Fair Value', pct: 0, chance: 0.85 },
-  { label: 'Over the Odds', pct: 0.15, chance: 0.99 },
+  { label: 'Cut-Price Bid', pct: -0.3, chance: 0.15 },
+  { label: 'Lowball Bid', pct: -0.15, chance: 0.4 },
+  { label: 'Fair Value', pct: 0, chance: 0.75 },
+  { label: 'Over the Odds', pct: 0.15, chance: 0.92 },
+  { label: 'Blow Them Away', pct: 0.3, chance: 0.99 },
 ];
 const WAGE_OFFER_TIERS = [
+  { label: 'Bargain Wage', pct: -0.3, chance: 0.15 },
   { label: 'Modest Wage', pct: -0.15, chance: 0.4 },
-  { label: 'Standard Wage', pct: 0, chance: 0.85 },
-  { label: 'Generous Wage', pct: 0.2, chance: 0.99 },
+  { label: 'Standard Wage', pct: 0, chance: 0.75 },
+  { label: 'Generous Wage', pct: 0.2, chance: 0.92 },
+  { label: 'Star Wage', pct: 0.4, chance: 0.99 },
 ];
 const CONTRACT_LENGTH_OPTIONS = [2, 3, 4, 5];
-let negotiationState = null; // { cp, agreedFee, contractYears } while a sign negotiation is open
+// { cp, feeTierIdx, wageTierIdx, contractYears } while a sign negotiation is
+// open - nothing is offered/rolled until the final review step now (see
+// resolveFullNegotiation); each step before that just records a selection.
+let negotiationState = null;
 
 function startSignNegotiation(cp) {
   if (cp.clubIdx != null && (effectiveClub(cp.clubIdx).strength || 1) - careerReputation() > BUY_REPUTATION_GAP) {
     showToast(`${cp.name}'s club won't sell to a side of your stature yet`, '#e63946');
     return;
   }
-  negotiationState = { cp, agreedFee: null, contractYears: 3 };
+  negotiationState = { cp, feeTierIdx: null, wageTierIdx: null, contractYears: 3 };
   renderFeeNegotiationStep();
 }
 
+// Shared by both offer-picking steps - a column of buttons that just
+// highlight the current selection (same idea as the contract-length picker
+// already had) instead of resolving anything immediately, plus optionally
+// disabling any option that's already unaffordable.
+function renderTierPicker(tiersEl, tiers, selectedIdx, amountFor, unit, onSelect) {
+  tiersEl.innerHTML = '';
+  tiers.forEach((tier, i) => {
+    const amount = amountFor(tier);
+    const btn = document.createElement('button');
+    btn.className = i === selectedIdx ? 'active' : '';
+    const unaffordable = unit === 'm' && amount > CAREER.budget;
+    btn.disabled = unaffordable;
+    btn.innerHTML = `<span>${tier.label} — £${amount}${unit === 'm/yr' ? 'm/yr' : 'm'}</span><span class="tier-odds">${unaffordable ? "can't afford" : `${Math.round(tier.chance * 100)}% likely accepted`}</span>`;
+    if (!unaffordable) btn.onclick = () => onSelect(i);
+    tiersEl.appendChild(btn);
+  });
+}
+
 function renderFeeNegotiationStep() {
-  const { cp } = negotiationState;
+  const { cp, feeTierIdx } = negotiationState;
   document.getElementById('career-meeting-badge').textContent = 'TRANSFER TALKS';
   document.getElementById('career-meeting-title').textContent = 'FEE NEGOTIATION';
   const stepEl = document.getElementById('career-meeting-step');
-  stepEl.textContent = 'Step 1 of 2 — Fee';
+  stepEl.textContent = 'Step 1 of 3 — Fee';
   stepEl.classList.remove('hidden');
   document.getElementById('career-meeting-flavor').textContent = pick([
     `You open talks with ${cp.club || "the player's club"} about a fee for ${cp.name}...`,
@@ -6347,47 +8226,31 @@ function renderFeeNegotiationStep() {
   document.getElementById('career-meeting-length-picker').classList.add('hidden');
   const tiersEl = document.getElementById('career-meeting-tiers');
   tiersEl.classList.remove('hidden');
-  tiersEl.innerHTML = '';
-  FEE_OFFER_TIERS.forEach(tier => {
-    const amount = Math.max(1, Math.round(cp.value * (1 + tier.pct)));
-    const btn = document.createElement('button');
-    btn.innerHTML = `<span>${tier.label} — £${amount}m</span><span class="tier-odds">${Math.round(tier.chance * 100)}% likely accepted</span>`;
-    btn.onclick = () => resolveFeeOffer(amount, tier.chance);
-    tiersEl.appendChild(btn);
+  renderTierPicker(tiersEl, FEE_OFFER_TIERS, feeTierIdx, tier => Math.max(1, Math.round(cp.value * (1 + tier.pct))), 'm', i => {
+    negotiationState.feeTierIdx = i;
+    renderFeeNegotiationStep();
   });
-  document.getElementById('btn-career-meeting-confirm').classList.add('hidden');
+  const confirmBtn = document.getElementById('btn-career-meeting-confirm');
+  confirmBtn.classList.remove('hidden', 'meeting-confirm-danger');
+  confirmBtn.textContent = 'Next';
+  confirmBtn.disabled = feeTierIdx == null;
+  confirmBtn.onclick = () => { if (negotiationState.feeTierIdx != null) renderPersonalTermsStep(); };
   document.getElementById('career-meeting-overlay').classList.remove('hidden');
 }
 
-function resolveFeeOffer(amount, chance) {
-  if (!negotiationState) return;
-  const { cp } = negotiationState;
-  if (amount > CAREER.budget) {
-    showToast("You can't afford that bid", '#e63946');
-    return;
-  }
-  if (Math.random() < chance) {
-    negotiationState.agreedFee = amount;
-    renderPersonalTermsStep();
-  } else {
-    showToast(`${cp.club || 'The club'} rejected your £${amount}m bid for ${cp.name}`, '#e63946');
-    // Stays on the fee step - try a higher tier, or Walk Away to cancel entirely.
-  }
-}
-
 function renderPersonalTermsStep() {
-  const { cp, agreedFee, contractYears } = negotiationState;
+  const { cp, wageTierIdx, contractYears } = negotiationState;
   document.getElementById('career-meeting-badge').textContent = 'CONTRACT TALKS';
   document.getElementById('career-meeting-title').textContent = 'PERSONAL TERMS';
-  document.getElementById('career-meeting-step').textContent = 'Step 2 of 2 — Wages & Contract';
+  document.getElementById('career-meeting-step').textContent = 'Step 2 of 3 — Wages & Contract';
   document.getElementById('career-meeting-flavor').textContent = pick([
     `${cp.name}'s agent joins the table to discuss wages and contract length...`,
-    `With a fee agreed, talks turn to personal terms with ${cp.name}...`,
+    `With a fee offer set, talks turn to personal terms with ${cp.name}...`,
     `${cp.name} wants to talk numbers - and years - before signing...`,
   ]);
   document.getElementById('career-meeting-details').innerHTML = [
     ['Player', cp.name],
-    ['Agreed Fee', `£${agreedFee}m`],
+    ['Fee Offer', `£${feeOfferAmount()}m`],
   ].map(([label, value]) => `<div class="meeting-detail-row"><span>${label}</span><span>${value}</span></div>`).join('');
 
   const lengthEl = document.getElementById('career-meeting-length-picker');
@@ -6403,27 +8266,83 @@ function renderPersonalTermsStep() {
 
   const tiersEl = document.getElementById('career-meeting-tiers');
   tiersEl.classList.remove('hidden');
-  tiersEl.innerHTML = '';
-  WAGE_OFFER_TIERS.forEach(tier => {
-    const wage = Math.max(0.2, Math.round(cp.wage * (1 + tier.pct) * 10) / 10);
-    const btn = document.createElement('button');
-    btn.innerHTML = `<span>${tier.label} — £${wage}m/yr</span><span class="tier-odds">${Math.round(tier.chance * 100)}% likely accepted</span>`;
-    btn.onclick = () => resolveWageOffer(wage, tier.chance);
-    tiersEl.appendChild(btn);
+  renderTierPicker(tiersEl, WAGE_OFFER_TIERS, wageTierIdx, tier => Math.max(0.2, Math.round(cp.wage * (1 + tier.pct) * 10) / 10), 'm/yr', i => {
+    negotiationState.wageTierIdx = i;
+    renderPersonalTermsStep();
   });
-  document.getElementById('btn-career-meeting-confirm').classList.add('hidden');
+  const confirmBtn = document.getElementById('btn-career-meeting-confirm');
+  confirmBtn.classList.remove('hidden', 'meeting-confirm-danger');
+  confirmBtn.textContent = 'Next';
+  confirmBtn.disabled = wageTierIdx == null;
+  confirmBtn.onclick = () => { if (negotiationState.wageTierIdx != null) renderReviewStep(); };
 }
 
-function resolveWageOffer(wage, chance) {
+function feeOfferAmount() {
+  const { cp, feeTierIdx } = negotiationState;
+  return Math.max(1, Math.round(cp.value * (1 + FEE_OFFER_TIERS[feeTierIdx].pct)));
+}
+function wageOfferAmount() {
+  const { cp, wageTierIdx } = negotiationState;
+  return Math.max(0.2, Math.round(cp.wage * (1 + WAGE_OFFER_TIERS[wageTierIdx].pct) * 10) / 10);
+}
+// Fee and wage odds are each that offer's own standalone chance; contract
+// length adds a small extra swing on top (a longer deal reads as more
+// commitment, so it's a bit likelier to land than a short one) - every part
+// of the package the player asked to be weighed in, combined into one final
+// number rather than resolving fee and wages as two separate dice rolls.
+function computeNegotiationChance() {
+  const { feeTierIdx, wageTierIdx, contractYears } = negotiationState;
+  const lengthFactor = 0.9 + (contractYears - 2) * 0.03;
+  return clamp(FEE_OFFER_TIERS[feeTierIdx].chance * WAGE_OFFER_TIERS[wageTierIdx].chance * lengthFactor, 0.05, 0.99);
+}
+
+function renderReviewStep() {
+  const { cp, contractYears } = negotiationState;
+  document.getElementById('career-meeting-badge').textContent = 'FINAL OFFER';
+  document.getElementById('career-meeting-title').textContent = 'REVIEW & SIGN';
+  document.getElementById('career-meeting-step').textContent = 'Step 3 of 3 — Review';
+  document.getElementById('career-meeting-flavor').textContent = pick([
+    `Everything's on the table - review the full package before ${cp.name} decides.`,
+    `One last look before you put the offer to ${cp.name} and their club.`,
+    `The whole deal, laid out - here's how likely it is to get done.`,
+  ]);
+  const chance = computeNegotiationChance();
+  document.getElementById('career-meeting-details').innerHTML = [
+    ['Player', cp.name],
+    ['Fee Offer', `£${feeOfferAmount()}m (${FEE_OFFER_TIERS[negotiationState.feeTierIdx].label})`],
+    ['Wage Offer', `£${wageOfferAmount()}m/yr (${WAGE_OFFER_TIERS[negotiationState.wageTierIdx].label})`],
+    ['Contract Length', `${contractYears}y`],
+    ['Chance of Acceptance', `${Math.round(chance * 100)}%`],
+  ].map(([label, value]) => `<div class="meeting-detail-row"><span>${label}</span><span>${value}</span></div>`).join('');
+  document.getElementById('career-meeting-length-picker').classList.add('hidden');
+  document.getElementById('career-meeting-tiers').classList.add('hidden');
+  const confirmBtn = document.getElementById('btn-career-meeting-confirm');
+  confirmBtn.classList.remove('hidden', 'meeting-confirm-danger');
+  confirmBtn.disabled = false;
+  confirmBtn.textContent = `Sign (${Math.round(chance * 100)}%)`;
+  confirmBtn.onclick = resolveFullNegotiation;
+}
+
+// The single dice roll for the whole package - everything before this point
+// was just choosing what to offer, nothing was actually put to the club/
+// player until now (see the "sign button at the end" this was built for).
+function resolveFullNegotiation() {
   if (!negotiationState) return;
-  const { cp, agreedFee, contractYears } = negotiationState;
+  const { cp, contractYears } = negotiationState;
+  const fee = feeOfferAmount();
+  const wage = wageOfferAmount();
+  const chance = computeNegotiationChance();
+  negotiationState = null;
+  if (fee > CAREER.budget) {
+    showToast("You can't afford that bid", '#e63946');
+    document.getElementById('career-meeting-overlay').classList.add('hidden');
+    return;
+  }
   if (Math.random() < chance) {
-    negotiationState = null;
-    finalizeSignNegotiation(cp, agreedFee, wage, contractYears);
+    finalizeSignNegotiation(cp, fee, wage, contractYears);
   } else {
-    showToast(`${cp.name}'s camp turned down those terms`, '#e63946');
-    // Stays on the personal-terms step - try a higher wage tier, change the
-    // contract length, or Walk Away.
+    document.getElementById('career-meeting-overlay').classList.add('hidden');
+    showToast(`${cp.club || 'The club'} and ${cp.name}'s camp turned down the full package`, '#e63946');
   }
 }
 
@@ -6440,6 +8359,122 @@ function finalizeSignNegotiation(cp, fee, wage, contractYears) {
   }
 }
 
+// ---------- Contract renewal negotiation - wage + length, no transfer fee
+// (renewing your own player is a real-terms raise negotiation, not a
+// purchase - see startRenewNegotiation) - reuses the same career-meeting-
+// overlay/renderTierPicker machinery as the sign-negotiation flow above,
+// just entering straight at the wage step since there's no fee to agree.
+const RENEWAL_WAGE_TIERS = [
+  { label: 'Hold Firm', pct: -0.05, chance: 0.35 },
+  { label: 'Modest Rise', pct: 0.1, chance: 0.65 },
+  { label: 'Fair Rise', pct: 0.25, chance: 0.85 },
+  { label: 'Generous Rise', pct: 0.45, chance: 0.95 },
+  { label: 'Star Terms', pct: 0.7, chance: 0.99 },
+];
+let renewalState = null; // { cp, wageTierIdx, contractYears } while a renewal negotiation is open
+
+function startRenewNegotiation(cp) {
+  renewalState = { cp, wageTierIdx: null, contractYears: 3 };
+  renderRenewalWageStep();
+}
+
+function renewalWageAmount() {
+  const { cp, wageTierIdx } = renewalState;
+  return Math.max(0.2, Math.round(cp.wage * (1 + RENEWAL_WAGE_TIERS[wageTierIdx].pct) * 10) / 10);
+}
+// Same "fee/wage/length all feed into one number" idea as
+// computeNegotiationChance, just without a fee term - length still helps a
+// little (a longer commitment reads as more sincere) on top of whichever
+// wage tier was offered.
+function renewalChance() {
+  const { wageTierIdx, contractYears } = renewalState;
+  const lengthFactor = 0.9 + (contractYears - 2) * 0.03;
+  return clamp(RENEWAL_WAGE_TIERS[wageTierIdx].chance * lengthFactor, 0.05, 0.99);
+}
+
+function renderRenewalWageStep() {
+  const { cp, wageTierIdx, contractYears } = renewalState;
+  document.getElementById('career-meeting-badge').textContent = 'CONTRACT TALKS';
+  document.getElementById('career-meeting-title').textContent = 'RENEWAL';
+  const stepEl = document.getElementById('career-meeting-step');
+  stepEl.textContent = 'Step 1 of 2 — Wages & Contract';
+  stepEl.classList.remove('hidden');
+  document.getElementById('career-meeting-flavor').textContent = pick([
+    `${cp.name}'s agent sits down to discuss a new deal...`,
+    `Renewal talks begin with ${cp.name}...`,
+    `${cp.name} wants to know what you're offering to stay...`,
+  ]);
+  document.getElementById('career-meeting-details').innerHTML = [
+    ['Player', cp.name],
+    ['Current Wage', `£${cp.wage}m/yr`],
+    ['Contract Left', `${cp.contractYears != null ? cp.contractYears : '?'}y`],
+  ].map(([label, value]) => `<div class="meeting-detail-row"><span>${label}</span><span>${value}</span></div>`).join('');
+
+  const lengthEl = document.getElementById('career-meeting-length-picker');
+  lengthEl.classList.remove('hidden');
+  lengthEl.innerHTML = '';
+  CONTRACT_LENGTH_OPTIONS.forEach(years => {
+    const btn = document.createElement('button');
+    btn.textContent = `${years}y`;
+    btn.className = years === contractYears ? 'active' : '';
+    btn.onclick = () => { renewalState.contractYears = years; renderRenewalWageStep(); };
+    lengthEl.appendChild(btn);
+  });
+
+  const tiersEl = document.getElementById('career-meeting-tiers');
+  tiersEl.classList.remove('hidden');
+  renderTierPicker(tiersEl, RENEWAL_WAGE_TIERS, wageTierIdx, tier => Math.max(0.2, Math.round(cp.wage * (1 + tier.pct) * 10) / 10), 'm/yr', i => {
+    renewalState.wageTierIdx = i;
+    renderRenewalWageStep();
+  });
+  const confirmBtn = document.getElementById('btn-career-meeting-confirm');
+  confirmBtn.classList.remove('hidden', 'meeting-confirm-danger');
+  confirmBtn.textContent = 'Next';
+  confirmBtn.disabled = wageTierIdx == null;
+  confirmBtn.onclick = () => { if (renewalState.wageTierIdx != null) renderRenewalReviewStep(); };
+  document.getElementById('career-meeting-overlay').classList.remove('hidden');
+}
+
+function renderRenewalReviewStep() {
+  const { cp, contractYears } = renewalState;
+  document.getElementById('career-meeting-badge').textContent = 'FINAL OFFER';
+  document.getElementById('career-meeting-title').textContent = 'REVIEW & RENEW';
+  document.getElementById('career-meeting-step').textContent = 'Step 2 of 2 — Review';
+  document.getElementById('career-meeting-flavor').textContent = `One last look before ${cp.name} decides whether to sign a new deal.`;
+  const chance = renewalChance();
+  document.getElementById('career-meeting-details').innerHTML = [
+    ['Player', cp.name],
+    ['New Wage', `£${renewalWageAmount()}m/yr (${RENEWAL_WAGE_TIERS[renewalState.wageTierIdx].label})`],
+    ['Contract Length', `${contractYears}y`],
+    ['Chance of Acceptance', `${Math.round(chance * 100)}%`],
+  ].map(([label, value]) => `<div class="meeting-detail-row"><span>${label}</span><span>${value}</span></div>`).join('');
+  document.getElementById('career-meeting-length-picker').classList.add('hidden');
+  document.getElementById('career-meeting-tiers').classList.add('hidden');
+  const confirmBtn = document.getElementById('btn-career-meeting-confirm');
+  confirmBtn.classList.remove('hidden', 'meeting-confirm-danger');
+  confirmBtn.disabled = false;
+  confirmBtn.textContent = `Offer New Deal (${Math.round(chance * 100)}%)`;
+  confirmBtn.onclick = resolveRenewalNegotiation;
+}
+
+function resolveRenewalNegotiation() {
+  if (!renewalState) return;
+  const { cp, contractYears } = renewalState;
+  const wage = renewalWageAmount();
+  const chance = renewalChance();
+  renewalState = null;
+  document.getElementById('career-meeting-overlay').classList.add('hidden');
+  if (Math.random() < chance) {
+    cp.contractYears = contractYears;
+    cp.wage = wage;
+    saveCareerSlot(CAREER.slot, CAREER);
+    showToast(`✅ ${cp.name} signed a new ${contractYears}-year deal at £${wage}m/yr`, '#4ade80');
+    renderCareerLineupScreen();
+  } else {
+    showToast(`${cp.name}'s camp turned down the offer - they want more to stay`, '#e63946');
+  }
+}
+
 function formatCareerPlayerRow(cp, actionLabel, actionHandler) {
   const card = document.createElement('div');
   card.className = 'player-card';
@@ -6447,12 +8482,73 @@ function formatCareerPlayerRow(cp, actionLabel, actionHandler) {
   const detail = cp.league ? `${cp.group}, age ${cp.age} — ${cp.club} (${cp.league})` : `${cp.group}, age ${cp.age}`;
   const contract = cp.contractYears != null ? ` — ${cp.contractYears}y left` : '';
   const wage = cp.wage != null ? `, £${cp.wage}m/yr` : '';
-  card.innerHTML = `<span><span class="player-name">${cp.name}</span><span class="player-meta">${detail} — value £${cp.value}m${wage}${contract}${cp.careerGoals ? ` — ${cp.careerGoals} career goal${cp.careerGoals === 1 ? '' : 's'}` : ''}</span></span>`;
+  const ratings = computePlayerRatings(cp);
+  const ovrClass = ratings.overall >= 85 ? 'ovr-elite' : ratings.overall >= 75 ? 'ovr-good' : ratings.overall >= 60 ? 'ovr-mid' : 'ovr-low';
+  const subStats = (ratings.isGK ? [
+    ['DIV', ratings.diving], ['HAN', ratings.handling], ['KIC', ratings.kicking],
+    ['REF', ratings.reflexes], ['POS', ratings.positioning], ['STA', ratings.stamina],
+  ] : [
+    ['SPD', ratings.speed], ['SHO', ratings.shooting], ['PAS', ratings.passing],
+    ['DRI', ratings.dribbling], ['TCK', ratings.tackling], ['STR', ratings.strength], ['STA', ratings.stamina],
+  ]).map(([label, val]) => `<span class="substat"><b>${val}</b>${label}</span>`).join('');
+  card.innerHTML = `
+    <span class="player-ovr ${ovrClass}">${ratings.overall}</span>
+    <span><span class="player-name">${cp.name}</span><span class="player-meta">${detail} — value £${cp.value}m${wage}${contract}${cp.careerGoals ? ` — ${cp.careerGoals} career goal${cp.careerGoals === 1 ? '' : 's'}` : ''}</span><span class="player-substats">${subStats}</span></span>`;
   const btn = document.createElement('button');
   btn.textContent = actionLabel;
   btn.onclick = actionHandler;
   card.appendChild(btn);
   return card;
+}
+
+// Same player-card look as the Career squad screens (formatCareerPlayerRow -
+// OVR badge, name, position, six sub-stats), for a live MATCH player object
+// instead of a persistent career one - see computePlayerRatings' cp.id/idx
+// fallback, which is what makes reusing it here safe. Adds a status strip
+// above the card itself: current in-match stamina (a live bar, not the
+// static Stamina sub-stat below it) and an injury/card badge if either
+// applies - exactly what you'd actually want to see before subbing someone.
+function formatMatchPlayerRow(p, actionLabel, actionHandler, opts) {
+  const wrap = document.createElement('div');
+  wrap.className = 'sub-player-row' + (opts && opts.selected ? ' sub-row-selected' : '');
+
+  const staminaPct = Math.round(clamp(p.stamina != null ? p.stamina : 1, 0, 1) * 100);
+  const staminaTier = staminaPct > 60 ? 'high' : staminaPct > 30 ? 'mid' : 'low';
+  const status = document.createElement('div');
+  status.className = 'sub-status-row';
+  status.innerHTML = `
+    <div class="sub-stamina-bar"><div class="sub-stamina-fill sub-stamina-${staminaTier}" style="width:${staminaPct}%"></div></div>
+    <span class="sub-stamina-pct">${staminaPct}%</span>
+    ${p.injured ? '<span class="sub-injury-badge">\u{1FA79} Injured</span>' : ''}
+    ${p.cardLevel === 1 ? '<span class="sub-card-badge">\u{1F7E8}</span>' : ''}
+    ${p.cardLevel === 2 ? '<span class="sub-card-badge">\u{1F7E5}</span>' : ''}
+  `;
+  wrap.appendChild(status);
+
+  const card = document.createElement('div');
+  card.className = 'player-card';
+  card.style.setProperty('--pos-color', POSITION_COLOR[p.group] || '#64748b');
+  const ratings = computePlayerRatings(p);
+  const ovrClass = ratings.overall >= 85 ? 'ovr-elite' : ratings.overall >= 75 ? 'ovr-good' : ratings.overall >= 60 ? 'ovr-mid' : 'ovr-low';
+  const subStats = (ratings.isGK ? [
+    ['DIV', ratings.diving], ['HAN', ratings.handling], ['KIC', ratings.kicking],
+    ['REF', ratings.reflexes], ['POS', ratings.positioning], ['STA', ratings.stamina],
+  ] : [
+    ['SPD', ratings.speed], ['SHO', ratings.shooting], ['PAS', ratings.passing],
+    ['DRI', ratings.dribbling], ['TCK', ratings.tackling], ['STR', ratings.strength], ['STA', ratings.stamina],
+  ]).map(([label, val]) => `<span class="substat"><b>${val}</b>${label}</span>`).join('');
+  const name = playerLabel(p);
+  const ageText = p.age != null ? `, age ${p.age}` : '';
+  card.innerHTML = `
+    <span class="player-ovr ${ovrClass}">${ratings.overall}</span>
+    <span><span class="player-name">${name}</span><span class="player-meta">${GROUP_LABEL[p.group] || p.group}${ageText}${p.goals ? ` — ${p.goals} goal${p.goals === 1 ? '' : 's'} today` : ''}</span><span class="player-substats">${subStats}</span></span>`;
+  const btn = document.createElement('button');
+  btn.textContent = actionLabel;
+  btn.disabled = !!(opts && opts.disabled);
+  btn.onclick = actionHandler;
+  card.appendChild(btn);
+  wrap.appendChild(card);
+  return wrap;
 }
 
 // Six boxes filling the whole screen (top row of 3, bottom row of 3) - same
@@ -6579,7 +8675,8 @@ function renderCareerDashboard() {
     // past this box's team-box-name truncation width, ellipsis-cutting off
     // before the actual opponent name was even visible.
     document.getElementById('career-fixture-competition').textContent = fixtureCompetitionLabel(fixture) || '';
-    fixtureEl.textContent = `vs ${opp.name}`;
+    fixtureEl.textContent = `vs ${fixtureOpponentLabel(opp.name)}`;
+    fixtureEl.title = `vs ${opp.name}`; // full name still available on hover/long-press if it got abbreviated
   } else {
     fixtureBox.style.setProperty('--team-color', '#333');
     document.getElementById('career-fixture-competition').textContent = '';
@@ -6759,6 +8856,19 @@ function renderCareerLineupScreen() {
     nameEl.textContent = cp ? cp.name : '—';
     marker.appendChild(dot);
     marker.appendChild(nameEl);
+    // A starter whose contract needs sorting gets a Renew button right under
+    // their pitch marker too, not just down in the reserves list - same
+    // negotiation flow (startRenewNegotiation) either way.
+    if (ctx === CAREER && cp && cp.contractYears != null && cp.contractYears <= 1) {
+      const renewBtn = document.createElement('button');
+      renewBtn.className = 'formation-player-renew-btn';
+      renewBtn.textContent = 'Renew';
+      renewBtn.onclick = (e) => {
+        e.stopPropagation(); // don't also trigger the marker's own click-to-select/swap handler below
+        startRenewNegotiation(cp);
+      };
+      marker.appendChild(renewBtn);
+    }
     marker.onclick = () => {
       if (careerLineupSelectedSlot == null) {
         careerLineupSelectedSlot = i;
@@ -6833,18 +8943,8 @@ function renderCareerLineupScreen() {
       if (cp.contractYears != null && cp.contractYears <= 1) {
         const renewBtn = document.createElement('button');
         renewBtn.className = 'career-lineup-start-btn';
-        const cost = Math.max(1, Math.round(cp.value * 0.05));
-        renewBtn.textContent = `Renew £${cost}m`;
-        renewBtn.onclick = () => {
-          showCareerMeeting({
-            kind: 'renew', cp, confirmLabel: `Renew £${cost}m`,
-            extraRows: [['Signing-on fee', `£${cost}m`], ['Current wage', `£${cp.wage}m/yr`]],
-            onConfirm: () => {
-              if (renewCareerPlayerContract(cp, cost)) renderCareerLineupScreen();
-              else showToast('Not enough budget to renew', '#e63946');
-            },
-          });
-        };
+        renewBtn.textContent = 'Renew';
+        renewBtn.onclick = () => startRenewNegotiation(cp);
         actions.appendChild(renewBtn);
       }
       list.appendChild(card);
@@ -6888,15 +8988,16 @@ function renderCareerTableScreen() {
 // Shown once a career season ends (see endCareerSeason's seasonSummary/
 // CAREER.lastSeasonSummary) - has to be closed with the Continue button
 // rather than the game silently carrying on to the next season/dashboard.
+// key -> [display name, whether it needs the actual league's domestic cup name]
+const CAREER_COMPETITION_DISPLAY = {
+  facup: (league) => DOMESTIC_CUP_NAME[league] || 'Domestic Cup',
+  leaguecup: () => 'League Cup',
+  ucl: () => 'Champions League',
+  uel: () => 'Europa League',
+};
 function showSeasonCompleteOverlay(summary) {
   const club = ALL_CLUBS[CAREER.clubIdx];
   document.getElementById('season-complete-club').textContent = `${club.name} — Season ${summary.season} (${summary.league})`;
-  const r = summary.record;
-  const stat = (label, value) => `<div class="season-stat-chip"><span class="stat-value">${value}</span><span class="stat-label">${label}</span></div>`;
-  document.getElementById('season-complete-stats').innerHTML =
-    stat('Position', `${summary.finalRank} of ${summary.leagueSize}`) + stat('Points', r.points) +
-    stat('Played', r.played) + stat('Won', r.won) + stat('Drawn', r.drawn) + stat('Lost', r.lost) +
-    stat('Scored', r.gf) + stat('Conceded', r.ga);
   const badges = [];
   if (summary.champion) badges.push('<span class="career-trophy-badge">🏆 League Champions</span>');
   if (summary.trophies.facup) badges.push(`<span class="career-trophy-badge">🏆 ${DOMESTIC_CUP_NAME[summary.league] || 'Domestic Cup'}</span>`);
@@ -6906,6 +9007,30 @@ function showSeasonCompleteOverlay(summary) {
   if (summary.promoted) badges.push('<span class="career-trophy-badge promo">⬆️ Promoted</span>');
   if (summary.relegated) badges.push('<span class="career-trophy-badge releg">⬇️ Relegated</span>');
   document.getElementById('season-complete-trophies').innerHTML = badges.join('');
+
+  // Every cup/continental competition actually played this season - won, or
+  // knocked out at which round. eliminations may be missing on an old save
+  // from before this existed (Object.assign-style default via `|| {}`), in
+  // which case this section just quietly shows nothing rather than guessing.
+  const eliminations = summary.eliminations || {};
+  const compRows = Object.keys(CAREER_COMPETITION_DISPLAY).map(key => {
+    const name = CAREER_COMPETITION_DISPLAY[key](summary.league);
+    if (summary.trophies[key]) {
+      return `<div class="season-complete-comp-row"><span>${name}</span><span class="comp-result-won">🏆 Won</span></div>`;
+    }
+    if (eliminations[key]) {
+      return `<div class="season-complete-comp-row"><span>${name}</span><span class="comp-result-out">Out — ${eliminations[key]}</span></div>`;
+    }
+    return null; // never entered/played this season - not shown at all
+  }).filter(Boolean);
+  document.getElementById('season-complete-competitions').innerHTML = compRows.join('');
+
+  const r = summary.record;
+  const stat = (label, value) => `<div class="season-stat-chip"><span class="stat-value">${value}</span><span class="stat-label">${label}</span></div>`;
+  document.getElementById('season-complete-stats').innerHTML =
+    stat('Position', `${summary.finalRank} of ${summary.leagueSize}`) + stat('Points', r.points) +
+    stat('Played', r.played) + stat('Won', r.won) + stat('Drawn', r.drawn) + stat('Lost', r.lost) +
+    stat('Scored', r.gf) + stat('Conceded', r.ga);
   document.getElementById('season-complete-overlay').classList.remove('hidden');
 }
 
@@ -6968,28 +9093,326 @@ function renderCareerHistoryScreen() {
   });
 }
 
-// Which source the transfer market is currently narrowed to - 'All', 'Free
-// Agents', or one of the league names getTransferPool's clubs can carry
-// (see formatCareerPlayerRow/cp.league). Persists across re-renders of this
-// screen (signing a player re-renders it) but resets whenever the screen is
-// opened fresh, same lifetime as careerClubSetup's own screen-local state.
-let careerMarketFilter = 'All';
-// null = showing the club-picker grid; a clubIdx (number) or the sentinel
-// 'free-agents' = drilled into that one "club"'s players. Reset to null
-// whenever the market screen is opened fresh or the league filter changes
-// (the previously-picked club may not even match the new filter).
-let careerMarketSelectedClub = null;
-
-// Transfer pool split into four columns by position, one going across, with
-// a row of source filter buttons above (All / Free Agents / one per league
-// currently in the pool) so you're not scrolling through every eligible
-// league's entire squad at once to find one player.
-// Which tab of the Transfer Market screen is showing - 'buy' (the existing
-// 4-column view) or 'offers' (incoming offers on your own players, see
-// generateIncomingOffers/resolveOffer). Set explicitly by the tab buttons,
-// and defaulted sensibly (to 'offers' if any are pending) the moment the
-// screen is opened fresh - see btn-career-transfers' own handler.
+// Which tab of the Transfer Market screen is showing - 'buy' (the league/
+// club/position drill-down below) or 'offers' (incoming offers on your own
+// players, see generateIncomingOffers/resolveOffer). Set explicitly by the
+// tab buttons, and defaulted sensibly (to 'offers' if any are pending) the
+// moment the screen is opened fresh - see btn-career-transfers' own handler.
 let careerMarketTab = 'buy';
+
+// Transfer Market navigation - League -> Club -> Position, browsed the same
+// swipeable/arrow-key/dot way as the main hub's mode-browser (see
+// bindCarouselSwipe/goToCarouselIdx). level tracks which of the three views
+// is showing; leagueIdx/clubIdx/posIdx index into whatever the CURRENT
+// filtered lists are (marketLeagueEntries()/marketClubEntries()/
+// marketPositionsForCurrent()) - those are always re-derived fresh rather
+// than cached, so signing a player just narrows the lists in place instead
+// of needing a separate resync step.
+let marketNav = { level: 'league', leagueIdx: 0, clubIdx: 0, posIdx: 0 };
+const MARKET_POSITIONS = [
+  { key: 'GK', label: 'Goalkeepers' },
+  { key: 'DEF', label: 'Defenders' },
+  { key: 'MID', label: 'Midfielders' },
+  { key: 'FWD', label: 'Attackers' },
+];
+
+// One entry per league with a signable player, plus a Free Agents entry -
+// Free Agents has no club level of its own (skips straight to positions,
+// see enterMarketLeague).
+function marketLeagueEntries() {
+  const pool = getTransferPool();
+  const leagues = [...new Set(pool.filter(cp => cp.league).map(cp => cp.league))];
+  const entries = leagues.map(name => ({ key: name, label: name, isFreeAgents: false }));
+  if (pool.some(cp => !cp.league)) entries.push({ key: 'free-agents', label: 'Free Agents', isFreeAgents: true });
+  return entries;
+}
+// Every club WITHIN one league that currently has a signable player,
+// sorted alphabetically - an array of clubIdx (not club defs), so callers
+// can look up ALL_CLUBS[idx] alongside a live signable-player count.
+function marketClubEntries(leagueKey) {
+  const pool = getTransferPool().filter(cp => cp.league === leagueKey);
+  const clubIdxs = [...new Set(pool.filter(cp => cp.clubIdx != null).map(cp => cp.clubIdx))];
+  return clubIdxs.sort((a, b) => ALL_CLUBS[a].name.localeCompare(ALL_CLUBS[b].name));
+}
+// The signable players for whichever league/club (or Free Agents) is
+// currently selected.
+function marketPlayersForCurrent() {
+  const league = marketLeagueEntries()[marketNav.leagueIdx];
+  if (!league) return [];
+  let pool = getTransferPool().filter(cp => league.isFreeAgents ? !cp.league : cp.league === league.key);
+  if (!league.isFreeAgents) {
+    const clubIdx = marketClubEntries(league.key)[marketNav.clubIdx];
+    pool = pool.filter(cp => cp.clubIdx === clubIdx);
+  }
+  return pool;
+}
+// The GK/DEF/MID/FWD entries that actually have a signable player right
+// now, for whichever club (or Free Agents) is currently selected.
+function marketPositionsForCurrent() {
+  const pool = marketPlayersForCurrent();
+  return MARKET_POSITIONS.filter(pos => pool.some(cp => cp.group === pos.key));
+}
+
+// Shared slide/dots/arrow-visibility driver for all three carousels below -
+// same idea as the main hub's goToModePage, generalised by an id prefix
+// instead of one hardcoded set of element ids.
+function goToCarouselIdx(prefix, idx, count, instant) {
+  const clamped = clamp(idx, 0, Math.max(0, count - 1));
+  const track = document.getElementById(`${prefix}-track`);
+  // Pixel-based, not a "%" transform - a % translateX resolves against the
+  // TRACK's own width (which is N pages wide, growing with the list), not
+  // one page's worth, so "100%" overshot by a bit more every extra club in
+  // the list - matches bindCarouselSwipe's drag math, which already used
+  // clientWidth correctly for exactly this reason.
+  const pageWidth = track.parentElement.clientWidth;
+  if (instant) track.style.transition = 'none';
+  track.style.transform = `translateX(-${clamped * pageWidth}px)`;
+  if (instant) { void track.offsetHeight; track.style.transition = ''; }
+  const dotsEl = document.getElementById(`${prefix}-dots`);
+  if (dotsEl) dotsEl.querySelectorAll('.mode-dot').forEach((d, i) => d.classList.toggle('active', i === clamped));
+  const prevBtn = document.getElementById(`${prefix}-prev`);
+  const nextBtn = document.getElementById(`${prefix}-next`);
+  if (prevBtn) prevBtn.classList.toggle('hidden', clamped === 0);
+  if (nextBtn) nextBtn.classList.toggle('hidden', clamped === count - 1);
+  return clamped;
+}
+function renderMarketDots(prefix, count, onClick) {
+  const dotsEl = document.getElementById(`${prefix}-dots`);
+  if (!dotsEl) return;
+  dotsEl.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    const dot = document.createElement('button');
+    dot.className = 'mode-dot';
+    dot.onclick = () => onClick(i);
+    dotsEl.appendChild(dot);
+  }
+}
+// Reusable drag-to-swipe binding, same interaction model as the main hub's
+// mode-browser (bindModeBrowserSwipe) - generalised so the Market's three
+// nested carousels don't each need their own copy of the drag math. Scoped
+// to the track's own rendered width (not window.innerWidth like the hub
+// uses) since these carousels live inside a panel, not a full-viewport page.
+function bindCarouselSwipe(prefix, getIdx, getCount, goTo) {
+  const track = document.getElementById(`${prefix}-track`);
+  const SWIPE_THRESHOLD = 60;
+  let startX = null, startY = null, dragging = false, decided = false, horizontal = false;
+  const onMove = (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - startX, dy = e.clientY - startY;
+    if (!decided) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      decided = true;
+      horizontal = Math.abs(dx) > Math.abs(dy);
+      if (horizontal) track.style.transition = 'none';
+    }
+    if (!horizontal) return;
+    e.preventDefault();
+    track.style.transform = `translateX(${-getIdx() * track.parentElement.clientWidth + dx}px)`;
+  };
+  const onUp = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    track.style.transition = '';
+    if (horizontal) {
+      const dx = e.clientX - startX;
+      if (dx < -SWIPE_THRESHOLD) goTo(getIdx() + 1);
+      else if (dx > SWIPE_THRESHOLD) goTo(getIdx() - 1);
+      else goTo(getIdx());
+    }
+  };
+  track.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button')) return; // don't hijack a drag that starts on a real button (Enter/Sign/etc.)
+    startX = e.clientX; startY = e.clientY;
+    dragging = true; decided = false; horizontal = false;
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+}
+
+function showMarketView(level) {
+  marketNav.level = level;
+  document.getElementById('market-league-view').classList.toggle('hidden', level !== 'league');
+  document.getElementById('market-club-view').classList.toggle('hidden', level !== 'club');
+  document.getElementById('market-position-view').classList.toggle('hidden', level !== 'position');
+}
+
+function goToMarketLeague(idx, instant) {
+  marketNav.leagueIdx = goToCarouselIdx('market-league', idx, marketLeagueEntries().length, instant);
+}
+function goToMarketClub(idx, instant) {
+  const league = marketLeagueEntries()[marketNav.leagueIdx];
+  marketNav.clubIdx = goToCarouselIdx('market-club', idx, league ? marketClubEntries(league.key).length : 0, instant);
+}
+function goToMarketPosition(idx, instant) {
+  marketNav.posIdx = goToCarouselIdx('market-position', idx, marketPositionsForCurrent().length, instant);
+  document.querySelectorAll('#market-position-tabs .market-position-tab').forEach((tab, i) => tab.classList.toggle('active', i === marketNav.posIdx));
+}
+
+function enterMarketLeague(idx) {
+  const entries = marketLeagueEntries();
+  if (!entries.length) return;
+  marketNav.leagueIdx = clamp(idx, 0, entries.length - 1);
+  const league = entries[marketNav.leagueIdx];
+  marketNav.clubIdx = 0;
+  marketNav.posIdx = 0;
+  // renderMarketClubs only flips the visible view to 'club' once
+  // marketNav.level already says 'club' (it also gets called on every
+  // plain re-render, where the level must NOT change) - has to be set
+  // here, before calling it, or pressing Enter did all the rendering work
+  // but never actually switched off the league view.
+  if (league.isFreeAgents) { marketNav.level = 'position'; renderMarketPositions(); }
+  else { marketNav.level = 'club'; renderMarketClubs(); }
+}
+function enterMarketClub(idx) {
+  const league = marketLeagueEntries()[marketNav.leagueIdx];
+  if (!league) return;
+  const clubIdxs = marketClubEntries(league.key);
+  if (!clubIdxs.length) return;
+  marketNav.clubIdx = clamp(idx, 0, clubIdxs.length - 1);
+  marketNav.posIdx = 0;
+  marketNav.level = 'position';
+  renderMarketPositions();
+}
+
+function renderMarketLeagues() {
+  const entries = marketLeagueEntries();
+  const track = document.getElementById('market-league-track');
+  track.innerHTML = '';
+  if (!entries.length) {
+    track.innerHTML = '<p class="hint-text">No players available to sign right now.</p>';
+    document.getElementById('market-league-dots').innerHTML = '';
+    showMarketView('league');
+    return;
+  }
+  marketNav.leagueIdx = clamp(marketNav.leagueIdx, 0, entries.length - 1);
+  const pool = getTransferPool();
+  entries.forEach((entry, i) => {
+    const page = document.createElement('div');
+    page.className = 'market-league-page';
+    const playerCount = pool.filter(cp => entry.isFreeAgents ? !cp.league : cp.league === entry.key).length;
+    const clubCount = entry.isFreeAgents ? null : marketClubEntries(entry.key).length;
+    page.innerHTML = `
+      <h2>${entry.label}</h2>
+      <p class="market-league-sub">${clubCount != null ? `${clubCount} club${clubCount === 1 ? '' : 's'} &middot; ` : ''}${playerCount} player${playerCount === 1 ? '' : 's'} available</p>
+      <button class="mode-enter-btn">Enter ${entry.isFreeAgents ? 'Free Agents' : 'League'}</button>
+    `;
+    page.querySelector('.mode-enter-btn').onclick = () => enterMarketLeague(i);
+    track.appendChild(page);
+  });
+  renderMarketDots('market-league-dots', entries.length, (i) => goToMarketLeague(i));
+  goToMarketLeague(marketNav.leagueIdx, true);
+  if (marketNav.level === 'league') showMarketView('league');
+  else if (marketNav.level === 'club') renderMarketClubs();
+  else renderMarketPositions();
+}
+
+function renderMarketClubs() {
+  const entries = marketLeagueEntries();
+  const league = entries[marketNav.leagueIdx];
+  if (!league || league.isFreeAgents) { renderMarketPositions(); return; }
+  const clubIdxs = marketClubEntries(league.key);
+  if (!clubIdxs.length) { showMarketView('league'); return; } // league emptied out (its last signable player was just bought) - bounce back
+  marketNav.clubIdx = clamp(marketNav.clubIdx, 0, clubIdxs.length - 1);
+  const track = document.getElementById('market-club-track');
+  track.innerHTML = '';
+  const pool = getTransferPool();
+  clubIdxs.forEach((clubIdx, i) => {
+    const club = ALL_CLUBS[clubIdx];
+    const count = pool.filter(cp => cp.clubIdx === clubIdx && cp.league === league.key).length;
+    const page = document.createElement('div');
+    page.className = 'market-club-page team-box';
+    page.style.setProperty('--team-color', club.shirt);
+    page.style.setProperty('--team-text', readableTextColor(club.shirt));
+    styleTeamBox(page, club);
+    page.innerHTML = `
+      <div class="team-box-flair" aria-hidden="true"></div>
+      <span class="team-box-name market-club-page-name">${club.name}</span>
+      <p class="market-club-page-count">${count} player${count === 1 ? '' : 's'} available</p>
+      <button class="mode-enter-btn">View Squad</button>
+    `;
+    page.querySelector('.mode-enter-btn').onclick = () => enterMarketClub(i);
+    track.appendChild(page);
+  });
+  renderMarketDots('market-club-dots', clubIdxs.length, (i) => goToMarketClub(i));
+  goToMarketClub(marketNav.clubIdx, true);
+  if (marketNav.level === 'club') showMarketView('club');
+  else if (marketNav.level === 'position') renderMarketPositions();
+}
+
+// A short scouting-style blurb underneath each player card - the "more
+// detailed value and description" these position pages carry that the old
+// flat list didn't.
+function marketPlayerBlurb(cp) {
+  const ratings = computePlayerRatings(cp);
+  const tier = ratings.overall >= 85 ? 'a world-class' : ratings.overall >= 75 ? 'a top-quality' : ratings.overall >= 60 ? 'a solid squad' : 'a developing';
+  const ageWord = cp.age < 21 ? 'a young prospect with plenty of room to grow' : cp.age <= 29 ? 'in their prime years' : 'an experienced, veteran presence';
+  const source = cp.league ? `Valued at £${cp.value}m by ${cp.club || 'their club'}` : `A free agent valued around £${cp.value}m`;
+  return `${tier.charAt(0).toUpperCase()}${tier.slice(1)} ${(GROUP_LABEL[cp.group] || cp.group).toLowerCase()}, ${ageWord}. ${source}, likely to command wages around £${cp.wage}m/yr.`;
+}
+function formatMarketPlayerRow(cp) {
+  const wrap = document.createElement('div');
+  wrap.className = 'market-player-wrap';
+  wrap.appendChild(formatCareerPlayerRow(cp, `Sign £${cp.value}m`, () => startSignNegotiation(cp)));
+  const blurb = document.createElement('p');
+  blurb.className = 'market-player-blurb';
+  blurb.textContent = marketPlayerBlurb(cp);
+  wrap.appendChild(blurb);
+  return wrap;
+}
+
+function renderMarketPositions() {
+  const entries = marketLeagueEntries();
+  const league = entries[marketNav.leagueIdx];
+  if (!league) { showMarketView('league'); return; }
+  let clubName;
+  if (league.isFreeAgents) {
+    clubName = 'Free Agents';
+  } else {
+    const clubIdx = marketClubEntries(league.key)[marketNav.clubIdx];
+    if (clubIdx == null) { renderMarketClubs(); return; }
+    clubName = ALL_CLUBS[clubIdx].name;
+  }
+  document.getElementById('market-position-club-name').textContent = clubName;
+  document.getElementById('market-position-back-label').textContent = league.isFreeAgents ? 'Leagues' : 'Clubs';
+  const pool = marketPlayersForCurrent();
+  const positions = MARKET_POSITIONS.filter(pos => pool.some(cp => cp.group === pos.key));
+  const tabsEl = document.getElementById('market-position-tabs');
+  const track = document.getElementById('market-position-track');
+  tabsEl.innerHTML = '';
+  track.innerHTML = '';
+  if (!positions.length) {
+    track.innerHTML = '<p class="hint-text">No signable players left here.</p>';
+    showMarketView('position');
+    return;
+  }
+  marketNav.posIdx = clamp(marketNav.posIdx, 0, positions.length - 1);
+  positions.forEach((pos, i) => {
+    const tab = document.createElement('button');
+    tab.className = 'market-position-tab' + (i === marketNav.posIdx ? ' active' : '');
+    tab.textContent = pos.label;
+    tab.onclick = () => goToMarketPosition(i);
+    tabsEl.appendChild(tab);
+
+    const page = document.createElement('div');
+    page.className = 'market-position-page';
+    // Each position gets its own accent colour (same POSITION_COLOR every
+    // player-card already uses) and a real page header, so swiping between
+    // GK/DEF/MID/FWD reads as moving between distinct pages instead of just
+    // re-filtering the same plain list.
+    page.style.setProperty('--pos-accent', POSITION_COLOR[pos.key] || '#64748b');
+    const players = pool.filter(cp => cp.group === pos.key);
+    const header = document.createElement('div');
+    header.className = 'market-position-page-header';
+    header.innerHTML = `<h2>${pos.label}</h2><p>${players.length} player${players.length === 1 ? '' : 's'} available</p>`;
+    page.appendChild(header);
+    players.forEach(cp => page.appendChild(formatMarketPlayerRow(cp)));
+    track.appendChild(page);
+  });
+  goToMarketPosition(marketNav.posIdx, true);
+  showMarketView('position');
+}
 
 // One card per pending incoming offer - Accept sells immediately at the
 // offered price; Counter expands the card in place with the three fixed
@@ -7074,100 +9497,7 @@ function renderCareerTransferScreen() {
   document.getElementById('career-market-buy-panel').classList.toggle('hidden', careerMarketTab !== 'buy');
   document.getElementById('career-offers-list').classList.toggle('hidden', careerMarketTab !== 'offers');
   if (careerMarketTab === 'offers') { renderCareerOffersList(); return; }
-  const pool = getTransferPool();
-  const leaguesInPool = [...new Set(pool.filter(cp => cp.league).map(cp => cp.league))];
-  const hasFreeAgents = pool.some(cp => !cp.league);
-  const filters = ['All', ...(hasFreeAgents ? ['Free Agents'] : []), ...leaguesInPool];
-  if (!filters.includes(careerMarketFilter)) careerMarketFilter = 'All';
-  const filterBar = document.getElementById('career-market-filters');
-  filterBar.innerHTML = '';
-  filters.forEach(f => {
-    const btn = document.createElement('button');
-    btn.className = 'career-market-filter-btn' + (f === careerMarketFilter ? ' active' : '');
-    btn.textContent = f;
-    btn.onclick = () => {
-      careerMarketFilter = f;
-      careerMarketSelectedClub = null; // the previously-picked club may not even match the new filter - back to the club grid
-      renderCareerTransferScreen();
-    };
-    filterBar.appendChild(btn);
-  });
-  const filtered = pool.filter(cp => {
-    if (careerMarketFilter === 'All') return true;
-    if (careerMarketFilter === 'Free Agents') return !cp.league;
-    return cp.league === careerMarketFilter;
-  });
-
-  const clubListEl = document.getElementById('career-market-club-list');
-  const playersPanelEl = document.getElementById('career-market-players-panel');
-
-  if (careerMarketSelectedClub == null) {
-    playersPanelEl.classList.add('hidden');
-    clubListEl.classList.remove('hidden');
-    renderCareerMarketClubList(clubListEl, filtered);
-    return;
-  }
-  clubListEl.classList.add('hidden');
-  playersPanelEl.classList.remove('hidden');
-  renderCareerMarketPlayersForClub(filtered);
-}
-
-// The club-picker grid - one tile per club (kit-coloured, like every other
-// club box in the game) that has at least one signable player in the
-// current filter, plus a Free Agents tile when there are any. Clicking a
-// tile drills into renderCareerMarketPlayersForClub for just that club.
-function renderCareerMarketClubList(clubListEl, filtered) {
-  clubListEl.innerHTML = '';
-  const byClub = new Map(); // clubIdx -> count
-  let freeAgentCount = 0;
-  filtered.forEach(cp => {
-    if (cp.clubIdx == null) { freeAgentCount++; return; }
-    byClub.set(cp.clubIdx, (byClub.get(cp.clubIdx) || 0) + 1);
-  });
-  const entries = [...byClub.entries()].sort((a, b) => ALL_CLUBS[a[0]].name.localeCompare(ALL_CLUBS[b[0]].name));
-  if (freeAgentCount) entries.unshift(['free-agents', freeAgentCount]);
-  if (!entries.length) {
-    clubListEl.innerHTML = '<p class="hint-text">No clubs match this filter.</p>';
-    return;
-  }
-  entries.forEach(([key, count]) => {
-    const tile = document.createElement('button');
-    tile.className = 'career-market-club-tile';
-    if (key === 'free-agents') {
-      tile.style.setProperty('--team-color', '#3f3f46');
-      tile.style.setProperty('--team-text', '#ffffff');
-      tile.innerHTML = `Free Agents<span class="club-tile-count">${count} player${count === 1 ? '' : 's'}</span>`;
-    } else {
-      const club = ALL_CLUBS[key];
-      tile.style.setProperty('--team-color', club.shirt);
-      tile.style.setProperty('--team-text', readableTextColor(club.shirt));
-      tile.innerHTML = `${club.name}<span class="club-tile-count">${count} player${count === 1 ? '' : 's'}</span>`;
-    }
-    tile.onclick = () => { careerMarketSelectedClub = key; renderCareerTransferScreen(); };
-    clubListEl.appendChild(tile);
-  });
-}
-
-// The signable players for whichever one club (or Free Agents) is currently
-// selected - same four GK/DEF/MID/FWD columns the old flat list used, just
-// scoped down to one club's players instead of the whole pool at once.
-function renderCareerMarketPlayersForClub(filtered) {
-  const key = careerMarketSelectedClub;
-  const clubName = key === 'free-agents' ? 'Free Agents' : ALL_CLUBS[key].name;
-  document.getElementById('career-market-club-name').textContent = clubName;
-  const clubPlayers = filtered.filter(cp => (key === 'free-agents' ? cp.clubIdx == null : cp.clubIdx === key));
-  const cols = {
-    GK: document.getElementById('career-market-gk'),
-    DEF: document.getElementById('career-market-def'),
-    MID: document.getElementById('career-market-mid'),
-    FWD: document.getElementById('career-market-fwd'),
-  };
-  Object.values(cols).forEach(col => { col.innerHTML = ''; });
-  clubPlayers.forEach(cp => {
-    const col = cols[cp.group];
-    if (!col) return;
-    col.appendChild(formatCareerPlayerRow(cp, `Sign £${cp.value}m`, () => startSignNegotiation(cp)));
-  });
+  renderMarketLeagues();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -7257,7 +9587,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-stats').onclick = () => { renderStatsScreen(); showScreen('stats-screen'); };
   document.getElementById('btn-stats-back').onclick = () => { showScreen('main-menu'); };
 
-  document.getElementById('btn-online').onclick = () => { showScreen('online-menu-screen'); };
   document.getElementById('btn-online-back').onclick = () => { showScreen('main-menu'); };
   document.getElementById('btn-online-host').onclick = () => {
     SFX.warmup();
@@ -7286,6 +9615,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-online-ready').onclick = () => { onlineReadyClicked(); };
   document.getElementById('btn-online-teampick-back').onclick = () => { teardownOnline(); showScreen('online-menu-screen'); };
   document.getElementById('btn-online-lost-menu').onclick = () => { goToMainMenu(); };
+  document.getElementById('btn-online-reconnect-give-up').onclick = () => { goToMainMenu(); };
 
   document.getElementById('btn-online-join').onclick = () => {
     SFX.warmup();
@@ -7298,6 +9628,13 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('online-join-code-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') joinOnlineWithCode();
   });
+
+  document.getElementById('btn-online-quickmatch').onclick = () => {
+    SFX.warmup();
+    showScreen('online-quickmatch-screen');
+    startQuickMatch();
+  };
+  document.getElementById('btn-online-quickmatch-back').onclick = () => { teardownOnline(); showScreen('online-menu-screen'); };
   // Codes are always generated upper-case (see relay-server's ROOM_ALPHABET)
   // and matched case-insensitively either way - this just makes what you see
   // as you type match that, instead of showing lowercase until you hit Join.
@@ -7305,7 +9642,6 @@ document.addEventListener('DOMContentLoaded', () => {
     e.target.value = e.target.value.toUpperCase();
   });
 
-  document.getElementById('btn-career').onclick = () => { renderCareerSlotsScreen(); showScreen('career-slots-screen'); };
   document.getElementById('btn-career-club-back').onclick = () => { showScreen('career-slots-screen'); };
   document.getElementById('btn-start-career').onclick = () => {
     SFX.warmup();
@@ -7321,23 +9657,40 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   document.getElementById('btn-career-transfers').onclick = () => {
     careerMarketTab = (CAREER.incomingOffers || []).length > 0 ? 'offers' : 'buy';
-    careerMarketSelectedClub = null;
+    marketNav = { level: 'league', leagueIdx: 0, clubIdx: 0, posIdx: 0 };
     renderCareerTransferScreen();
     showScreen('career-transfer-screen');
   };
   document.getElementById('btn-career-transfer-back').onclick = () => { showCareerDashboard(); };
-  document.getElementById('btn-market-club-back').onclick = () => { careerMarketSelectedClub = null; renderCareerTransferScreen(); };
+  document.getElementById('market-club-back').onclick = () => showMarketView('league');
+  document.getElementById('market-position-back').onclick = () => {
+    const league = marketLeagueEntries()[marketNav.leagueIdx];
+    showMarketView(league && league.isFreeAgents ? 'league' : 'club');
+  };
+  document.getElementById('market-league-prev').onclick = () => goToMarketLeague(marketNav.leagueIdx - 1);
+  document.getElementById('market-league-next').onclick = () => goToMarketLeague(marketNav.leagueIdx + 1);
+  document.getElementById('market-club-prev').onclick = () => goToMarketClub(marketNav.clubIdx - 1);
+  document.getElementById('market-club-next').onclick = () => goToMarketClub(marketNav.clubIdx + 1);
+  document.getElementById('market-position-prev').onclick = () => goToMarketPosition(marketNav.posIdx - 1);
+  document.getElementById('market-position-next').onclick = () => goToMarketPosition(marketNav.posIdx + 1);
+  bindCarouselSwipe('market-league', () => marketNav.leagueIdx, () => marketLeagueEntries().length, goToMarketLeague);
+  bindCarouselSwipe('market-club', () => marketNav.clubIdx, () => {
+    const league = marketLeagueEntries()[marketNav.leagueIdx];
+    return league ? marketClubEntries(league.key).length : 0;
+  }, goToMarketClub);
+  bindCarouselSwipe('market-position', () => marketNav.posIdx, () => marketPositionsForCurrent().length, goToMarketPosition);
   document.getElementById('btn-career-meeting-cancel').onclick = () => {
     document.getElementById('career-meeting-overlay').classList.add('hidden');
     careerMeetingOnConfirm = null;
     negotiationState = null; // walking away mid-negotiation (fee agreed but personal terms not, etc.) drops the whole thing, not just the current step
+    renewalState = null; // same idea, for a renewal negotiation walked away from mid-flow
+    // Next time the shared overlay opens it might be a plain one-shot
+    // meeting (Release) rather than another negotiation - make sure it
+    // doesn't inherit whatever step-specific onclick a negotiation left on
+    // this button.
+    document.getElementById('btn-career-meeting-confirm').onclick = careerMeetingConfirmDispatch;
   };
-  document.getElementById('btn-career-meeting-confirm').onclick = () => {
-    document.getElementById('career-meeting-overlay').classList.add('hidden');
-    const cb = careerMeetingOnConfirm;
-    careerMeetingOnConfirm = null;
-    if (cb) cb();
-  };
+  document.getElementById('btn-career-meeting-confirm').onclick = careerMeetingConfirmDispatch;
   document.getElementById('btn-market-tab-buy').onclick = () => { careerMarketTab = 'buy'; renderCareerTransferScreen(); };
   document.getElementById('btn-market-tab-offers').onclick = () => { careerMarketTab = 'offers'; renderCareerTransferScreen(); };
   document.getElementById('btn-career-squad').onclick = () => {
@@ -7367,8 +9720,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('season-complete-overlay').classList.add('hidden');
   };
 
-  document.getElementById('btn-play').onclick = () => { showScreen('setup-screen'); };
-  document.getElementById('btn-season').onclick = () => { showScreen('season-setup-screen'); };
   document.getElementById('btn-season-back-menu').onclick = () => { showScreen('main-menu'); };
   document.getElementById('btn-start-season').onclick = () => {
     SFX.warmup();
@@ -7379,13 +9730,14 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   document.getElementById('btn-season-next').onclick = () => { startSeasonMatch(); };
   document.getElementById('btn-season-quit').onclick = () => { goToMainMenu(); };
+  document.getElementById('btn-season-view-fixtures').onclick = () => toggleSeasonView('fixtures');
+  document.getElementById('btn-season-view-table').onclick = () => toggleSeasonView('table');
   document.getElementById('btn-continue-season').onclick = () => {
     document.getElementById('fulltime-overlay').classList.add('hidden');
     renderSeasonTable();
     showScreen('season-table-screen');
   };
 
-  document.getElementById('btn-cup').onclick = () => { showScreen('cup-setup-screen'); };
   document.getElementById('btn-cup-back-menu').onclick = () => { showScreen('main-menu'); };
   document.getElementById('btn-start-cup').onclick = () => {
     SFX.warmup();
@@ -7399,6 +9751,16 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-cup-quit').onclick = () => { goToMainMenu(); };
   document.getElementById('btn-continue-cup').onclick = () => {
     document.getElementById('fulltime-overlay').classList.add('hidden');
+    if (CUP.won && !CUP.trophyShown) {
+      CUP.trophyShown = true;
+      showCupTrophyMoment();
+      return;
+    }
+    renderCupProgress();
+    showScreen('cup-progress-screen');
+  };
+  document.getElementById('btn-cup-trophy-continue').onclick = () => {
+    document.getElementById('cup-trophy-overlay').classList.add('hidden');
     renderCupProgress();
     showScreen('cup-progress-screen');
   };
@@ -7432,29 +9794,24 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-quit-to-menu').onclick = goToMainMenu;
   document.getElementById('btn-continue-halftime').onclick = endHalftime;
 
-  const openSubs = () => {
+  // Subs is a full page (like the Career squad screen) rather than a small
+  // popup now, with its own 15s auto-return timer - see
+  // startSubsAutoTimer/closeSubsScreen. returnTarget records which overlay
+  // (pause or halftime) sent us here, so Back/timeout can put it back.
+  const openSubs = (returnTarget) => {
     pendingSubOut = null;
     renderSubsScreen();
-    document.getElementById('subs-overlay').classList.remove('hidden');
+    document.getElementById(returnTarget === 'halftime' ? 'halftime-overlay' : 'pause-overlay').classList.add('hidden');
+    if (returnTarget === 'halftime' && G.halftimeInterval) { clearInterval(G.halftimeInterval); G.halftimeInterval = null; }
+    showScreen('subs-screen');
+    startSubsAutoTimer(returnTarget);
   };
-  document.getElementById('btn-subs').onclick = openSubs;
-  document.getElementById('btn-subs-halftime').onclick = openSubs;
-  document.getElementById('btn-subs-close').onclick = () => {
-    document.getElementById('subs-overlay').classList.add('hidden');
-  };
-  document.getElementById('subs-onpitch').addEventListener('click', (e) => {
-    const btn = e.target.closest('.sub-off-btn');
-    if (!btn || btn.disabled) return;
-    pendingSubOut = G.teams[0].players[parseInt(btn.dataset.idx)];
-    renderSubsScreen();
-  });
-  document.getElementById('subs-bench').addEventListener('click', (e) => {
-    const btn = e.target.closest('.sub-on-btn');
-    if (!btn || btn.disabled || !pendingSubOut) return;
-    substitutePlayer(G.teams[0], pendingSubOut, G.teams[0].bench[parseInt(btn.dataset.bench)]);
-    pendingSubOut = null;
-    renderSubsScreen();
-  });
+  document.getElementById('btn-subs').onclick = () => openSubs('pause');
+  document.getElementById('btn-subs-halftime').onclick = () => openSubs('halftime');
+  document.getElementById('btn-subs-close').onclick = () => closeSubsScreen(false);
+  // Sub Off/Bring On are wired directly per-card inside formatMatchPlayerRow
+  // now (same convention as the Career squad screens), not via a delegated
+  // click listener here.
 
   document.getElementById('cards-home-btn').onclick = () => {
     document.getElementById('cards-home-list').classList.toggle('hidden');
@@ -7473,6 +9830,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initMatch(yourIdx, oppIdx, halfLenMin, skillKey);
     showScreen('match-screen');
   };
+  document.getElementById('btn-online-rematch').onclick = requestOnlineRematch;
   document.getElementById('btn-rotate-dismiss').onclick = () => {
     document.getElementById('rotate-hint').classList.remove('enabled');
   };
@@ -7522,6 +9880,11 @@ document.addEventListener('DOMContentLoaded', () => {
     G.charge.shoot = false;
     G.joystick.x = 0;
     G.joystick.y = 0;
+    G.shootDragMag = 0;
+    const knob = document.getElementById('td-shoot-knob');
+    if (knob) knob.style.transform = 'translate(0px, 0px)';
+    const shootBtn = document.getElementById('td-shoot');
+    if (shootBtn) shootBtn.classList.remove('aiming');
     pauseGame();
   });
   // Covers phone app-switching / screen lock, which doesn't always fire 'blur'.
@@ -7529,11 +9892,78 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.hidden) pauseGame();
   });
 
+  // Mode-browser navigation - deliberately its own listener rather than
+  // folded into the match keydown handler above: arrow keys/Enter/Space
+  // only matter while sat on the main menu itself, never mid-match. Also
+  // guarded on the main-menu screen actually being the visible one - G.state
+  // stays STATE.MENU while browsing any career/setup screen too (nothing
+  // else changes it along that path), so without this it would also nudge
+  // the (hidden) hub carousel underneath whatever screen you're really on.
+  window.addEventListener('keydown', (e) => {
+    if (G.state !== STATE.MENU || isTypingIntoField()) return;
+    if (document.getElementById('main-menu').classList.contains('hidden')) return;
+    if (e.key === 'ArrowLeft') { e.preventDefault(); goToModePage(modeBrowserIdx - 1); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); goToModePage(modeBrowserIdx + 1); }
+    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectModePage(); }
+  });
+
+  // Difficulty picker arrow-key browsing - see armRankPicker, armed by
+  // clicking any rank tile on whichever setup screen you're on.
+  window.addEventListener('keydown', (e) => {
+    if (!activeRankPicker || isTypingIntoField()) return;
+    if (document.getElementById(activeRankPicker.screenId).classList.contains('hidden')) return;
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    const { setupObj, render } = activeRankPicker;
+    const curIdx = Math.max(0, RANK_SKILLS.indexOf(setupObj.skillKey));
+    const dir = e.key === 'ArrowLeft' ? -1 : 1;
+    setupObj.skillKey = RANK_SKILLS[(curIdx + dir + RANK_SKILLS.length) % RANK_SKILLS.length];
+    render();
+  });
+
+  // Transfer Market navigation - same arrow-key idea as the hub above, this
+  // time on career-transfer-screen's own three carousels (see marketNav).
+  window.addEventListener('keydown', (e) => {
+    if (isTypingIntoField() || careerMarketTab !== 'buy') return;
+    if (document.getElementById('career-transfer-screen').classList.contains('hidden')) return;
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Enter') return;
+    e.preventDefault();
+    if (marketNav.level === 'league') {
+      if (e.key === 'ArrowLeft') goToMarketLeague(marketNav.leagueIdx - 1);
+      else if (e.key === 'ArrowRight') goToMarketLeague(marketNav.leagueIdx + 1);
+      else enterMarketLeague(marketNav.leagueIdx);
+    } else if (marketNav.level === 'club') {
+      if (e.key === 'ArrowLeft') goToMarketClub(marketNav.clubIdx - 1);
+      else if (e.key === 'ArrowRight') goToMarketClub(marketNav.clubIdx + 1);
+      else enterMarketClub(marketNav.clubIdx);
+    } else if (marketNav.level === 'position') {
+      if (e.key === 'ArrowLeft') goToMarketPosition(marketNav.posIdx - 1);
+      else if (e.key === 'ArrowRight') goToMarketPosition(marketNav.posIdx + 1);
+      // Enter has no action here - Sign is its own button per player card.
+    }
+  });
+
   setupCanvasDPI();
   window.addEventListener('resize', setupCanvasDPI);
   window.addEventListener('orientationchange', setupCanvasDPI);
 
   setupTouchControls();
+  initModeBrowser();
+  // Same abstract flowing-line backdrop as the main hub (see
+  // renderModeAbstractLines), extended to each mode's own setup screen so
+  // it doesn't feel like a completely different, plainer app once you
+  // actually pick a mode - these are static single screens (not a
+  // carousel), so this only ever needs to run once.
+  ['setup-screen', 'season-setup-screen', 'cup-setup-screen', 'career-club-screen', 'online-menu-screen', 'subs-screen', 'settings-screen', 'stats-screen'].forEach(id => {
+    const screen = document.getElementById(id);
+    if (screen) renderModeAbstractLines(screen.querySelector('.mode-abstract-bg'));
+  });
+  // Same treatment for the pause/halftime/fulltime overlays (see .pause-box)
+  // - none of these are .screen elements above (they're overlays), so each
+  // needs its own call.
+  ['#pause-overlay', '#halftime-overlay', '#fulltime-overlay'].forEach(sel => {
+    renderModeAbstractLines(document.querySelector(`${sel} .mode-abstract-bg`));
+  });
   requestAnimationFrame(loop);
 });
 
@@ -7594,6 +10024,62 @@ function bindChargeButton(id, kind) {
   el.addEventListener('pointercancel', release);
 }
 
+// The Shoot button doubles as a small drag joystick, same footprint as the
+// button itself (see the CSS #td-shoot/#td-shoot-knob) - dragging it aims
+// the shot exactly where dragged (fed to releaseShot as a world-space
+// direction via resolveShootAim/G.shootAimVec), a plain tap with no real
+// drag still just fires an ordinary shot via the existing auto-target. The
+// knob's own travel is clamped to knobMaxR regardless of how far the
+// finger actually strays (same "clamp then normalize" approach as
+// setupJoystick's movement stick), so the drag can go anywhere on screen.
+function bindShootJoystick(id) {
+  const el = document.getElementById(id);
+  const knob = document.getElementById('td-shoot-knob');
+  const knobMaxR = 22; // px
+  let activePointerId = null;
+
+  function setFromClient(clientX, clientY) {
+    const rect = el.getBoundingClientRect();
+    const dx = clientX - (rect.left + rect.width / 2);
+    const dy = clientY - (rect.top + rect.height / 2);
+    const d = Math.min(Math.hypot(dx, dy), knobMaxR);
+    const angle = Math.atan2(dy, dx);
+    knob.style.transform = `translate(${Math.cos(angle) * d}px, ${Math.sin(angle) * d}px)`;
+    G.shootDragMag = d / knobMaxR;
+    if (G.shootDragMag > 0.02) { G.shootAimVec.x = Math.cos(angle); G.shootAimVec.y = Math.sin(angle); }
+    el.classList.toggle('aiming', G.shootDragMag > SHOOT_DRAG_THRESHOLD);
+  }
+
+  function reset() {
+    knob.style.transform = 'translate(0px, 0px)';
+    G.shootDragMag = 0;
+    el.classList.remove('aiming');
+    activePointerId = null;
+  }
+
+  el.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    activePointerId = e.pointerId;
+    el.setPointerCapture(e.pointerId);
+    if (!G.charge.shoot) { G.charge.shoot = true; G.charge.shootStart = performance.now(); }
+    setFromClient(e.clientX, e.clientY);
+  });
+  el.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== activePointerId) return;
+    e.preventDefault();
+    setFromClient(e.clientX, e.clientY);
+  });
+  const release = (e) => {
+    if (e.pointerId !== activePointerId) return;
+    e.preventDefault();
+    if (G.charge.shoot) onChargeRelease('shoot'); // reads G.shootDragMag/shootAimVec - must run before reset() clears them
+    reset();
+  };
+  el.addEventListener('pointerup', release);
+  el.addEventListener('pointerleave', release);
+  el.addEventListener('pointercancel', release);
+}
+
 function setTouchControlsVisible(show) {
   document.getElementById('touch-controls').classList.toggle('hidden', !show);
   document.getElementById('btn-toggle-input').textContent = show ? 'Keyboard Controls' : 'Touch Controls';
@@ -7603,7 +10089,7 @@ function setTouchControlsVisible(show) {
 function setupTouchControls() {
   setupJoystick();
   bindChargeButton('td-pass', 'pass');
-  bindChargeButton('td-shoot', 'shoot');
+  bindShootJoystick('td-shoot');
   document.getElementById('td-tackle').addEventListener('pointerdown', (e) => { e.preventDefault(); tryHumanTackle(); });
   document.getElementById('td-switch').addEventListener('pointerdown', (e) => { e.preventDefault(); trySwitchPlayer(); });
   document.getElementById('td-run').addEventListener('pointerdown', (e) => { e.preventDefault(); callTeammateRun(); });
@@ -7753,7 +10239,22 @@ function togglePause() {
 // to make the engine's heavy Math.random() use deterministic across two
 // machines. The guest never runs update(dt); they only send input intents
 // and render from snapshots the host streams back (see Phase 2+).
-const ONLINE_ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+// STUN alone only lets two peers discover their own public IP/port - it
+// can't establish a connection at all when either side is behind a
+// symmetric/carrier-grade NAT (very common on mobile data, and plenty of
+// home/school/office WiFi), since neither side ever ends up with an address
+// the other can actually reach. TURN relays the connection through a third
+// party for exactly that case. Openrelay's free public TURN (Metered.ca) -
+// fine for a small hobby game's occasional online match; it's rate-limited
+// and not guaranteed uptime, so if online still won't connect for someone,
+// a paid TURN provider (Twilio, Xirsys, Metered's own paid tier) would be
+// the next step up.
+const ONLINE_ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+];
 // A tiny always-on relay (see relay-server/server.js, deployed on Glitch)
 // that does nothing but pair two players by a short room code and forward
 // their WebRTC offer/answer between them - it never sees any match data,
@@ -7766,6 +10267,12 @@ const RELAY_SERVER_URL = 'wss://retro-ball-relay.onrender.com';
 // short timeout here would misreport a perfectly healthy but sleepy server
 // as unreachable.
 const SIGNAL_CONNECT_TIMEOUT_MS = 65000;
+// How long a mid-match reconnect attempt gets before giving up and showing
+// the permanent "connection lost" overlay - the relay itself will hold the
+// room open far longer than this (see ROOM_IDLE_TTL_MS server-side), but
+// there's no point leaving the player staring at "Reconnecting..." forever
+// if their friend genuinely isn't coming back.
+const RECONNECT_TIMEOUT_MS = 25000;
 
 function setOnlineHostStatus(text) {
   const el = document.getElementById('online-host-status');
@@ -7774,6 +10281,21 @@ function setOnlineHostStatus(text) {
 function setOnlineJoinStatus(text) {
   const el = document.getElementById('online-join-status');
   if (el) el.textContent = text;
+}
+function setOnlineQuickmatchStatus(text) {
+  const el = document.getElementById('online-quickmatch-status');
+  if (el) el.textContent = text;
+}
+function setOnlineReconnectStatus(text) {
+  const el = document.getElementById('online-reconnect-status');
+  if (el) el.textContent = text;
+}
+function showReconnectingOverlay() {
+  if (G.state === STATE.MENU) return;
+  document.getElementById('online-reconnecting-overlay').classList.remove('hidden');
+}
+function hideReconnectingOverlay() {
+  document.getElementById('online-reconnecting-overlay').classList.add('hidden');
 }
 
 // Selects a readonly/code textarea's full text and tries the classic
@@ -7852,12 +10374,15 @@ function teardownOnline() {
     try { G.online.pc && G.online.pc.close(); } catch (e) { /* already closed */ }
   }
   G.online = null;
+  hideReconnectingOverlay(); // in case a deliberate quit happens mid-reconnect-attempt
 }
 
-// Shown for a mid-match connection loss - not shown for a deliberate local
+// Shown once a mid-match connection loss has been given up on entirely
+// (see attemptOnlineReconnect - this is the fallback once that fails or
+// times out, not the first thing shown). Not shown for a deliberate local
 // quit, since teardownOnline() (called by goToMainMenu) already nulls
-// G.online synchronously before either of this overlay's two triggers
-// (onconnectionstatechange/dc.onclose) ever get a chance to fire.
+// G.online synchronously before any of the triggers that lead here ever
+// get a chance to fire.
 function showConnectionLostOverlay() {
   if (G.state === STATE.MENU) return; // not even in a match/setup flow - nothing to show over
   document.getElementById('online-lost-overlay').classList.remove('hidden');
@@ -7873,9 +10398,14 @@ function wireOnlinePeerConnection(pc) {
       // wireOnlineDataChannel's own signalWs cleanup never runs - close it
       // here too, or the socket to the relay leaks open indefinitely.
       try { G.online.signalWs && G.online.signalWs.close(); } catch (e) { /* already closed */ }
-      const msg = "Connection failed - this can happen with strict/symmetric NAT or firewalls; there's no TURN relay to fall back on in this version. If it keeps failing, try having one of you switch to a mobile hotspot.";
-      if (G.online.role === 'host') setOnlineHostStatus(msg); else setOnlineJoinStatus(msg);
-      if (G.online.matchStarted) showConnectionLostOverlay();
+      if (G.online.matchStarted) {
+        // Already mid-match - worth trying to recover the connection rather
+        // than immediately ending the game (see attemptOnlineReconnect).
+        attemptOnlineReconnect();
+      } else {
+        const msg = "Connection failed - this can happen with strict/symmetric NAT or firewalls. If it keeps failing, try having one of you switch to a mobile hotspot.";
+        if (G.online.role === 'host') setOnlineHostStatus(msg); else setOnlineJoinStatus(msg);
+      }
     }
   };
 }
@@ -7887,16 +10417,27 @@ function sendOnlineMessage(msg) {
 
 // The 'ping'/'ping-ack' pair (logged to console) just proves the channel
 // actually works end to end; real match messages are dispatched to
-// hostHandleMessage/guestHandleMessage below.
-function wireOnlineDataChannel(dc) {
+// hostHandleMessage/guestHandleMessage below. isReconnect (set by
+// attemptOnlineReconnect when re-establishing a dropped mid-match
+// connection) skips the normal first-time-connected UI - the players are
+// already deep inside a match, not sat on the team-pick screen.
+function wireOnlineDataChannel(dc, isReconnect) {
   dc.onopen = () => {
     if (!G.online) return;
     G.online.connState = 'open';
-    console.log('[online] data channel open, role=' + G.online.role);
+    console.log('[online] data channel open, role=' + G.online.role + (isReconnect ? ' (reconnect)' : ''));
     // The relay's only job was introducing the two peers - now that the
-    // real, direct DataChannel is open, it's no longer needed.
+    // real, direct DataChannel is open, it's no longer needed. Tell it so
+    // first (marks the room reconnect-eligible server-side - see
+    // relay-server/server.js), then close.
+    sendSignal({ type: 'connected' });
     try { G.online.signalWs && G.online.signalWs.close(); } catch (e) { /* already closed */ }
     G.online.signalWs = null;
+    if (isReconnect) {
+      G.online.reconnecting = false;
+      hideReconnectingOverlay();
+      return;
+    }
     if (G.online.role === 'host') {
       setOnlineHostStatus('Connected!');
       sendOnlineMessage({ type: 'ping' });
@@ -7909,7 +10450,8 @@ function wireOnlineDataChannel(dc) {
   dc.onclose = () => {
     console.log('[online] data channel closed');
     if (!G.online) return; // we closed it ourselves (e.g. quit to menu) - nothing to show
-    showConnectionLostOverlay();
+    if (G.online.matchStarted) attemptOnlineReconnect();
+    else showConnectionLostOverlay();
   };
   dc.onmessage = (e) => {
     let msg;
@@ -7954,6 +10496,8 @@ function hostHandleMessage(msg) {
     togglePause();
   } else if (msg.type === 'endHalftimeRequest') {
     endHalftime(); // same "call the host's own version" trick as pauseToggle above
+  } else if (msg.type === 'rematchRequest') {
+    requestOnlineRematch(); // guest asked for a rematch - only the host can actually start one, see requestOnlineRematch's role branch
   }
 }
 
@@ -8027,9 +10571,16 @@ function applyGuestStateChange(state, extra) {
     document.getElementById('fulltime-motm').textContent = extra.motmText;
     document.getElementById('fulltime-motm').classList.toggle('hidden', !extra.motmVisible);
     document.getElementById('btn-rematch').classList.add('hidden');
+    document.getElementById('btn-online-rematch').classList.remove('hidden');
+    document.getElementById('btn-online-rematch').disabled = false;
+    document.getElementById('online-rematch-status').classList.add('hidden');
     document.getElementById('btn-continue-season').classList.add('hidden');
     document.getElementById('btn-continue-cup').classList.add('hidden');
     document.getElementById('btn-continue-career').classList.add('hidden');
+    // Guest is always G.teams[1] (host is always team 0 - see
+    // startOnlineHostedMatch), opposite convention from the host's own
+    // recordOnlineResult call in finalizeFulltime.
+    recordOnlineResult(G.teams[1].score, G.teams[0].score);
     // SEASON/CUP/CAREER are always null during an online match (quick-match
     // only, v1 scope), so the host's own finalizeFulltime always takes its
     // plain 12s-then-menu path - mirror that same timing here independently
@@ -8202,7 +10753,8 @@ function sendGuestMoveInput() {
 // (see interpolateShadowState) since isAimableShotSituation/drawAimMarker
 // are already generic and need no changes of their own.
 function guestSteerAim(dt) {
-  if (!G.controlled || !G.charge.shoot || !isAimableShotSituation(G.controlled)) return;
+  const aimable = (G.charge.shoot && isAimableShotSituation(G.controlled)) || (G.charge.pass && isAimableThrowinSituation(G.controlled));
+  if (!G.controlled || !aimable) return;
   let steer = G.joystick.x;
   if (G.keysDown[KEYS.left]) steer -= 1;
   if (G.keysDown[KEYS.right]) steer += 1;
@@ -8251,6 +10803,7 @@ function renderOnlineTeamPickTeam() {
   const box = document.getElementById('online-team-box');
   box.style.setProperty('--team-color', def.shirt);
   box.style.setProperty('--team-text', readableTextColor(def.shirt));
+  styleTeamBox(box, def);
   document.getElementById('online-team-name').textContent = def.name;
 }
 function cycleOnlineTeamPickTeam(dir) {
@@ -8325,6 +10878,30 @@ function startOnlineHostedMatch(hostTeamDef, guestTeamDef, guestLineup) {
   applyCareerSquad(G.teams[1], validGuestLineup || buildOnlineLineupContext(guestClubIdx));
   showScreen('match-screen');
 }
+
+// Real rematch against the still-connected friend (the DataChannel stays
+// open right through the fulltime screen - teardownOnline is only ever
+// called by actually leaving), not a fresh room-code handshake - same two
+// clubs replayed again. Only the host can actually restart the match (same
+// "team 0 = host" assumption as everywhere else in this codebase), so a
+// guest clicking this just asks the host to do it instead (see
+// hostHandleMessage's 'rematchRequest' branch, which calls straight back
+// into this same function on the host's own client).
+function requestOnlineRematch() {
+  if (!G.online) return;
+  if (G.fulltimeTimeout) { clearTimeout(G.fulltimeTimeout); G.fulltimeTimeout = null; }
+  document.getElementById('btn-online-rematch').disabled = true;
+  if (G.online.role === 'host') {
+    document.getElementById('fulltime-overlay').classList.add('hidden');
+    startOnlineHostedMatch(onlineTeamPickList()[onlineTeamPick.clubIdx], onlineRemoteTeamDef, onlineRemoteLineup);
+  } else {
+    const statusEl = document.getElementById('online-rematch-status');
+    statusEl.textContent = "Rematch requested - waiting for your friend...";
+    statusEl.classList.remove('hidden');
+    sendOnlineMessage({ type: 'rematchRequest' });
+  }
+}
+
 function onlineReadyClicked() {
   if (!G.online || onlineLocalReady) return;
   onlineLocalReady = true;
@@ -8353,7 +10930,7 @@ function startOnlineHost() {
   teardownOnline();
   const pc = new RTCPeerConnection({ iceServers: ONLINE_ICE_SERVERS });
   const dc = pc.createDataChannel('match');
-  G.online = { role: 'host', pc, dc, signalWs: null, roomCode: null, connState: 'connecting', matchStarted: false, snapshotBuf: [null, null], lastBroadcastAt: 0 };
+  G.online = { role: 'host', pc, dc, signalWs: null, roomCode: null, reconnecting: false, connState: 'connecting', matchStarted: false, snapshotBuf: [null, null], lastBroadcastAt: 0 };
   wireOnlineDataChannel(dc);
   wireOnlinePeerConnection(pc);
   setOnlineHostStatus('Connecting to the server... can take up to a minute if it was asleep.');
@@ -8404,7 +10981,7 @@ function joinOnlineWithCode() {
   const code = document.getElementById('online-join-code-input').value.trim().toUpperCase();
   if (!code) { setOnlineJoinStatus('Type the code your friend sent you first.'); return; }
   teardownOnline();
-  G.online = { role: 'guest', pc: null, dc: null, signalWs: null, connState: 'connecting', matchStarted: false, snapshotBuf: [null, null], lastBroadcastAt: 0 };
+  G.online = { role: 'guest', pc: null, dc: null, signalWs: null, roomCode: code, reconnecting: false, connState: 'connecting', matchStarted: false, snapshotBuf: [null, null], lastBroadcastAt: 0 };
   setOnlineJoinStatus('Connecting to the server... can take up to a minute if it was asleep.');
   G.online.signalWs = openSignalingSocket({
     onOpen: () => sendSignal({ type: 'join', code }),
@@ -8423,11 +11000,8 @@ function joinOnlineWithCode() {
           G.online.pc = pc;
           pc.ondatachannel = (e) => { G.online.dc = e.channel; wireOnlineDataChannel(e.channel); };
           wireOnlinePeerConnection(pc);
-          await pc.setRemoteDescription(msg.payload.sdp);
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          await waitForIceGatheringComplete(pc);
-          sendSignal({ type: 'relay', payload: { sdp: pc.localDescription } });
+          const localDesc = await createGuestAnswer(pc, msg.payload.sdp);
+          sendSignal({ type: 'relay', payload: { sdp: localDesc } });
           setOnlineJoinStatus('Connecting...');
         } catch (e) {
           setOnlineJoinStatus("Couldn't finish connecting - check your network and try again.");
@@ -8438,5 +11012,156 @@ function joinOnlineWithCode() {
     },
     onClose: () => { /* either the DataChannel already took over, or the host's gone - nothing to do */ },
     onTimeout: () => setOnlineJoinStatus("Couldn't reach the server - check your connection and try again."),
+  });
+}
+
+// Shared by the guest's initial join (above) and both sides' reconnect flow
+// (attemptOnlineReconnect below) - answers a received offer and returns the
+// finished local description, ready to relay back.
+async function createGuestAnswer(pc, remoteSdp) {
+  await pc.setRemoteDescription(remoteSdp);
+  const answer = await pc.createAnswer();
+  await pc.setLocalDescription(answer);
+  await waitForIceGatheringComplete(pc);
+  return pc.localDescription;
+}
+
+// No code to share/type - the relay's quickQueue (see server.js) pairs this
+// socket with whoever else is waiting, or parks it in line until someone
+// is. Once paired, the relay hands back a real room code (asHost decides
+// which side offers vs answers) and everything downstream - the SDP
+// handshake, 'connected', a later reconnect - works identically to a
+// manual host/join pairing.
+function startQuickMatch() {
+  teardownOnline();
+  G.online = { role: null, pc: null, dc: null, signalWs: null, roomCode: null, reconnecting: false, connState: 'connecting', matchStarted: false, snapshotBuf: [null, null], lastBroadcastAt: 0 };
+  setOnlineQuickmatchStatus('Connecting to the server... can take up to a minute if it was asleep.');
+  G.online.signalWs = openSignalingSocket({
+    onOpen: () => sendSignal({ type: 'quickMatch' }),
+    onMessage: async (msg) => {
+      if (!G.online) return;
+      if (msg.type === 'queued') {
+        setOnlineQuickmatchStatus('Searching for an opponent...');
+      } else if (msg.type === 'quickMatched') {
+        G.online.role = msg.asHost ? 'host' : 'guest';
+        G.online.roomCode = msg.code;
+        setOnlineQuickmatchStatus('Found an opponent - connecting...');
+        if (msg.asHost) {
+          try {
+            const pc = new RTCPeerConnection({ iceServers: ONLINE_ICE_SERVERS });
+            const dc = pc.createDataChannel('match');
+            G.online.pc = pc;
+            G.online.dc = dc;
+            wireOnlineDataChannel(dc);
+            wireOnlinePeerConnection(pc);
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            await waitForIceGatheringComplete(pc);
+            sendSignal({ type: 'relay', payload: { sdp: pc.localDescription } });
+          } catch (e) {
+            setOnlineQuickmatchStatus("Couldn't finish connecting - check your network and try again.");
+          }
+        }
+        // the guest side just waits for the 'relay' offer below, same as joinOnlineWithCode
+      } else if (msg.type === 'relay') {
+        try {
+          if (G.online.role === 'host') {
+            await G.online.pc.setRemoteDescription(msg.payload.sdp);
+            setOnlineQuickmatchStatus('Connecting...');
+          } else {
+            const pc = new RTCPeerConnection({ iceServers: ONLINE_ICE_SERVERS });
+            G.online.pc = pc;
+            pc.ondatachannel = (e) => { G.online.dc = e.channel; wireOnlineDataChannel(e.channel); };
+            wireOnlinePeerConnection(pc);
+            const localDesc = await createGuestAnswer(pc, msg.payload.sdp);
+            sendSignal({ type: 'relay', payload: { sdp: localDesc } });
+            setOnlineQuickmatchStatus('Connecting...');
+          }
+        } catch (e) {
+          setOnlineQuickmatchStatus("Couldn't finish connecting - check your network and try again.");
+        }
+      }
+    },
+    onClose: () => { /* either the DataChannel already took over, or we cancelled/left the queue - nothing to do */ },
+    onTimeout: () => setOnlineQuickmatchStatus("Couldn't reach the server - check your connection and try again."),
+  });
+}
+
+// A dropped mid-match connection (see wireOnlinePeerConnection/
+// wireOnlineDataChannel) doesn't have to be the end of the game - both
+// sides still remember the same room code, and the relay keeps a paired
+// room reachable for reconnects (see relay-server/server.js's 'rejoin'
+// handling) well past any reasonable retry window. This re-does the whole
+// WebRTC offer/answer handshake from scratch against that same code; once
+// the new DataChannel opens, wireOnlineDataChannel's isReconnect path just
+// quietly resumes play - snapshots/inputs pick back up on their own since
+// the host's broadcast loop and the guest's message handling never
+// stopped, they just had nothing to send/receive for a bit.
+function attemptOnlineReconnect() {
+  if (!G.online || !G.online.roomCode) { showConnectionLostOverlay(); return; }
+  if (G.online.reconnecting) return; // already retrying - this is a second failure event for the same drop
+  G.online.reconnecting = true;
+  showReconnectingOverlay();
+  setOnlineReconnectStatus('Connection dropped - reconnecting...');
+  try { G.online.pc && G.online.pc.close(); } catch (e) { /* already closed */ }
+  try { G.online.dc && G.online.dc.close(); } catch (e) { /* already closed */ }
+  try { G.online.signalWs && G.online.signalWs.close(); } catch (e) { /* already closed */ }
+  G.online.pc = null;
+  G.online.dc = null;
+  G.online.signalWs = null;
+  const role = G.online.role;
+  const code = G.online.roomCode;
+
+  // wireOnlineDataChannel's isReconnect path clears G.online.reconnecting
+  // once the new dc actually opens - giveUp() no-ops if that already
+  // happened by the time this fires, so there's no need to explicitly
+  // cancel the timer on success, just let it check the flag.
+  const giveUp = () => {
+    if (!G.online || !G.online.reconnecting) return;
+    G.online.reconnecting = false;
+    hideReconnectingOverlay();
+    showConnectionLostOverlay();
+  };
+  const failTimer = setTimeout(giveUp, RECONNECT_TIMEOUT_MS);
+
+  G.online.signalWs = openSignalingSocket({
+    onOpen: () => sendSignal({ type: 'rejoin', code, asHost: role === 'host' }),
+    onMessage: async (msg) => {
+      if (!G.online || !G.online.reconnecting) return;
+      if (msg.type === 'not-found') { clearTimeout(failTimer); giveUp(); return; }
+      if (msg.type === 'rejoined') {
+        setOnlineReconnectStatus('Found your friend again - reconnecting...');
+        if (role === 'host') {
+          try {
+            const pc = new RTCPeerConnection({ iceServers: ONLINE_ICE_SERVERS });
+            const dc = pc.createDataChannel('match');
+            G.online.pc = pc;
+            G.online.dc = dc;
+            wireOnlineDataChannel(dc, true);
+            wireOnlinePeerConnection(pc);
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            await waitForIceGatheringComplete(pc);
+            sendSignal({ type: 'relay', payload: { sdp: pc.localDescription } });
+          } catch (e) { clearTimeout(failTimer); giveUp(); }
+        }
+        // the guest side just waits for the 'relay' offer below
+      } else if (msg.type === 'relay') {
+        try {
+          if (role === 'host') {
+            await G.online.pc.setRemoteDescription(msg.payload.sdp);
+          } else {
+            const pc = new RTCPeerConnection({ iceServers: ONLINE_ICE_SERVERS });
+            G.online.pc = pc;
+            pc.ondatachannel = (e) => { G.online.dc = e.channel; wireOnlineDataChannel(e.channel, true); };
+            wireOnlinePeerConnection(pc);
+            const localDesc = await createGuestAnswer(pc, msg.payload.sdp);
+            sendSignal({ type: 'relay', payload: { sdp: localDesc } });
+          }
+        } catch (e) { clearTimeout(failTimer); giveUp(); }
+      }
+    },
+    onClose: () => { /* the new DataChannel takes over from here if it opened in time; giveUp's timer covers the case where it didn't */ },
+    onTimeout: () => { clearTimeout(failTimer); giveUp(); },
   });
 }

@@ -20,40 +20,100 @@
 </head>
 <body>
 
-<!-- MAIN MENU -->
+<!-- MAIN MENU - a full-screen, swipeable/arrow-key-browsable page per mode
+     (see MODE_PAGES/goToModePage in game.js) rather than a grid of buttons -
+     one themed page at a time, a collage of the game's own player art down
+     the left, the mode name up top, a description + rotating tips below. -->
 <div id="main-menu" class="screen menu-screen">
   <h1 class="menu-title">RETRO BALL</h1>
   <div id="menu-corner-buttons">
     <button id="btn-fullscreen" class="menu-corner-btn" aria-label="Toggle fullscreen">&#9974;</button>
     <button id="btn-stats" class="menu-corner-btn" aria-label="Lifetime stats">&#127942;</button>
     <button id="btn-settings" class="menu-corner-btn" aria-label="Settings">&#9881;</button>
+    <!-- A real "prohibition sign" (circle + diagonal bar), drawn in CSS
+         rather than an emoji glyph - see .btn-exit-prohibit in style.css. -->
+    <button id="btn-exit" class="menu-corner-btn btn-exit-prohibit" aria-label="Exit game"></button>
   </div>
-  <!-- Only shown when a Career save exists (see updateMenuContinueCareerCard)
-       - skips Main Menu -> Career -> pick slot -> dashboard down to one tap
-       for whichever save was most recently played. -->
-  <button id="btn-menu-continue-career" class="menu-continue-card hidden">
-    <span class="menu-continue-label">Continue Career</span>
-    <span id="menu-continue-club" class="menu-continue-club"></span>
-    <span id="menu-continue-detail" class="menu-continue-detail"></span>
-  </button>
-  <button id="btn-play" class="menu-panel panel-play">
-    <span class="panel-label">Kick-Off</span>
-  </button>
-  <button id="btn-season" class="menu-panel panel-season">
-    <span class="panel-label">Season</span>
-  </button>
-  <button id="btn-cup" class="menu-panel panel-cup">
-    <span class="panel-label">Cup</span>
-  </button>
-  <button id="btn-career" class="menu-panel panel-career">
-    <span class="panel-label">Career</span>
-  </button>
-  <button id="btn-online" class="menu-panel panel-online">
-    <span class="panel-label">Online</span>
-  </button>
-  <button id="btn-exit" class="menu-panel panel-exit">
-    <span class="panel-label">Exit Game</span>
-  </button>
+
+  <div id="mode-browser-track">
+    <section class="mode-page theme-play" data-mode="play">
+      <div class="mode-abstract-bg" aria-hidden="true"></div>
+      <div class="mode-scene-bg" aria-hidden="true"></div>
+      <div class="mode-collage" data-collage="play"></div>
+      <div class="mode-info">
+        <div class="mode-info-top"><h2 class="mode-name">Kick-Off</h2></div>
+        <div class="mode-info-bottom">
+          <p class="mode-desc">Jump straight into a single match. Pick any club from any of the six leagues, set the half length and difficulty, and kick off.</p>
+          <p class="mode-tip"></p>
+          <button class="mode-enter-btn">Play</button>
+        </div>
+      </div>
+    </section>
+    <section class="mode-page theme-season" data-mode="season">
+      <div class="mode-abstract-bg" aria-hidden="true"></div>
+      <div class="mode-scene-bg" aria-hidden="true"></div>
+      <div class="mode-collage" data-collage="season"></div>
+      <div class="mode-info">
+        <div class="mode-info-top"><h2 class="mode-name">Season</h2></div>
+        <div class="mode-info-bottom">
+          <p class="mode-desc">A personal campaign against every other club in your league - one match at a time, building a real record.</p>
+          <p class="mode-tip"></p>
+          <button class="mode-enter-btn">Play</button>
+        </div>
+      </div>
+    </section>
+    <section class="mode-page theme-cup" data-mode="cup">
+      <div class="mode-abstract-bg" aria-hidden="true"></div>
+      <div class="mode-scene-bg" aria-hidden="true"></div>
+      <div class="mode-collage" data-collage="cup"></div>
+      <div class="mode-info">
+        <div class="mode-info-top"><h2 class="mode-name">Cup</h2></div>
+        <div class="mode-info-bottom">
+          <p class="mode-desc">Straight knockout football. One defeat and you're out - every tie matters.</p>
+          <p class="mode-tip"></p>
+          <button class="mode-enter-btn">Play</button>
+        </div>
+      </div>
+    </section>
+    <section class="mode-page theme-career" data-mode="career">
+      <div class="mode-abstract-bg" aria-hidden="true"></div>
+      <div class="mode-scene-bg" aria-hidden="true"></div>
+      <div class="mode-collage" data-collage="career"></div>
+      <div class="mode-info">
+        <div class="mode-info-top"><h2 class="mode-name">Career</h2></div>
+        <div class="mode-info-bottom">
+          <p class="mode-desc">Take charge of a club for the long haul - sign players, manage wages, and build a squad across seasons.</p>
+          <p class="mode-tip"></p>
+          <!-- Only shown when a Career save exists (see updateMenuContinueCareerCard)
+               - skips Career -> pick slot -> dashboard down to one tap for
+               whichever save was most recently played. -->
+          <button id="btn-menu-continue-career" class="mode-continue-btn hidden">
+            <span class="menu-continue-label">Continue:</span>
+            <span id="menu-continue-club" class="menu-continue-club"></span>
+            <span id="menu-continue-detail" class="menu-continue-detail"></span>
+          </button>
+          <button class="mode-enter-btn">Play</button>
+        </div>
+      </div>
+    </section>
+    <section class="mode-page theme-online" data-mode="online">
+      <div class="mode-abstract-bg" aria-hidden="true"></div>
+      <div class="mode-scene-bg" aria-hidden="true"></div>
+      <div class="mode-collage" data-collage="online"></div>
+      <div class="mode-info">
+        <div class="mode-info-top"><h2 class="mode-name">Online</h2></div>
+        <div class="mode-info-bottom">
+          <p class="mode-desc">Play a friend anywhere - host a room and share the code, join theirs, or use Quick Match to get paired instantly.</p>
+          <p class="mode-tip"></p>
+          <button class="mode-enter-btn">Play</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="mode-browser-dots"></div>
+  <button id="mode-browser-prev" class="mode-nav-arrow mode-nav-prev" aria-label="Previous mode">&#10094;</button>
+  <button id="mode-browser-next" class="mode-nav-arrow mode-nav-next" aria-label="Next mode">&#10095;</button>
 </div>
 
 <!-- Persistent shortcut back to the main menu from any deep screen (Settings,
@@ -65,11 +125,20 @@
 <button id="btn-home" class="menu-corner-btn home-corner-btn hidden" aria-label="Main menu">&#127968;</button>
 
 <!-- SEASON SETUP -->
-<div id="season-setup-screen" class="screen hidden match-setup-custom custom-setup-screen">
+<div id="season-setup-screen" class="screen hidden match-setup-custom custom-setup-screen theme-season">
+  <div class="mode-abstract-bg" aria-hidden="true"></div>
   <div class="setup-top-row">
     <div class="team-box" id="season-team-box">
+      <div class="team-box-flair" aria-hidden="true"></div>
       <button id="season-team-prev" class="team-arrow" aria-label="Previous team">&#10094;</button>
-      <span id="season-team-name" class="team-box-name">Team</span>
+      <div class="team-box-center">
+        <div class="team-box-league-row">
+          <button id="season-team-league-prev" class="league-arrow" aria-label="Previous league">&#10094;</button>
+          <span id="season-team-league" class="team-box-league">League</span>
+          <button id="season-team-league-next" class="league-arrow" aria-label="Next league">&#10095;</button>
+        </div>
+        <span id="season-team-name" class="team-box-name">Team</span>
+      </div>
       <button id="season-team-next" class="team-arrow" aria-label="Next team">&#10095;</button>
     </div>
   </div>
@@ -101,6 +170,8 @@
         <button class="rank-tile rank-diamond" data-skill="champion"><span class="rank-name">Diamond</span></button>
         <button class="rank-tile rank-platinum" data-skill="grandmaster"><span class="rank-name">Platinum</span></button>
         <button class="rank-tile rank-champion" data-skill="legend"><span class="rank-name">Champion</span></button>
+        <button class="rank-tile rank-mythic" data-skill="mythic"><span class="rank-name">Legendary</span></button>
+        <button class="rank-tile rank-invincible" data-skill="invincible"><span class="rank-name">Invincible</span></button>
       </div>
     </div>
   </div>
@@ -111,18 +182,37 @@
   <div class="setup-card">
     <h1>SEASON</h1>
     <div id="season-record"></div>
+    <!-- The rest of the division now plays alongside you (see
+         advanceLeagueRound in game.js) - a real standings table, not just
+         your own results, toggled in place rather than a separate screen. -->
+    <div class="season-view-tabs">
+      <button id="btn-season-view-fixtures" class="season-view-tab active">My Fixtures</button>
+      <button id="btn-season-view-table" class="season-view-tab">League Table</button>
+    </div>
     <div id="season-fixtures"></div>
+    <div id="season-standings" class="hidden"></div>
+    <!-- Shown once the fixture list runs out - see renderSeasonAwards. -->
+    <div id="season-awards" class="hidden"></div>
     <button id="btn-season-next" class="btn-primary">Next Match</button>
     <button id="btn-season-quit">Return to Main Menu</button>
   </div>
 </div>
 
 <!-- CUP SETUP -->
-<div id="cup-setup-screen" class="screen hidden match-setup-custom custom-setup-screen">
+<div id="cup-setup-screen" class="screen hidden match-setup-custom custom-setup-screen theme-cup">
+  <div class="mode-abstract-bg" aria-hidden="true"></div>
   <div class="setup-top-row">
     <div class="team-box" id="cup-team-box">
+      <div class="team-box-flair" aria-hidden="true"></div>
       <button id="cup-team-prev" class="team-arrow" aria-label="Previous team">&#10094;</button>
-      <span id="cup-team-name" class="team-box-name">Team</span>
+      <div class="team-box-center">
+        <div class="team-box-league-row">
+          <button id="cup-team-league-prev" class="league-arrow" aria-label="Previous league">&#10094;</button>
+          <span id="cup-team-league" class="team-box-league">League</span>
+          <button id="cup-team-league-next" class="league-arrow" aria-label="Next league">&#10095;</button>
+        </div>
+        <span id="cup-team-name" class="team-box-name">Team</span>
+      </div>
       <button id="cup-team-next" class="team-arrow" aria-label="Next team">&#10095;</button>
     </div>
   </div>
@@ -150,6 +240,8 @@
         <button class="rank-tile rank-diamond" data-skill="champion"><span class="rank-name">Diamond</span></button>
         <button class="rank-tile rank-platinum" data-skill="grandmaster"><span class="rank-name">Platinum</span></button>
         <button class="rank-tile rank-champion" data-skill="legend"><span class="rank-name">Champion</span></button>
+        <button class="rank-tile rank-mythic" data-skill="mythic"><span class="rank-name">Legendary</span></button>
+        <button class="rank-tile rank-invincible" data-skill="invincible"><span class="rank-name">Invincible</span></button>
       </div>
     </div>
   </div>
@@ -177,7 +269,8 @@
 </div>
 
 <!-- CAREER: NEW SAVE CLUB PICKER -->
-<div id="career-club-screen" class="screen hidden match-setup-custom custom-setup-screen">
+<div id="career-club-screen" class="screen hidden match-setup-custom custom-setup-screen theme-career">
+  <div class="mode-abstract-bg" aria-hidden="true"></div>
   <div class="setup-top-row">
     <div class="quarter-box clock-box" id="career-league-box">
       <span class="clock-title">League</span>
@@ -190,6 +283,7 @@
       </div>
     </div>
     <div class="team-box" id="career-team-box">
+      <div class="team-box-flair" aria-hidden="true"></div>
       <button id="career-team-prev" class="team-arrow" aria-label="Previous team">&#10094;</button>
       <span id="career-team-name" class="team-box-name">Team</span>
       <button id="career-team-next" class="team-arrow" aria-label="Next team">&#10095;</button>
@@ -218,6 +312,8 @@
         <button class="rank-tile rank-diamond" data-skill="champion"><span class="rank-name">Diamond</span></button>
         <button class="rank-tile rank-platinum" data-skill="grandmaster"><span class="rank-name">Platinum</span></button>
         <button class="rank-tile rank-champion" data-skill="legend"><span class="rank-name">Champion</span></button>
+        <button class="rank-tile rank-mythic" data-skill="mythic"><span class="rank-name">Legendary</span></button>
+        <button class="rank-tile rank-invincible" data-skill="invincible"><span class="rank-name">Invincible</span></button>
       </div>
     </div>
   </div>
@@ -339,32 +435,45 @@
     <button id="btn-market-tab-offers" class="career-market-tab-btn">Offers Received</button>
   </div>
   <div id="career-market-buy-panel">
-    <div id="career-market-filters" class="career-market-filters"></div>
-    <!-- Club picker - shown until a club (or Free Agents) is picked. -->
-    <div id="career-market-club-list" class="career-market-club-grid"></div>
-    <!-- That club's players - hidden until a club is picked. -->
-    <div id="career-market-players-panel" class="hidden">
-      <div class="career-market-club-header">
-        <button id="btn-market-club-back">Back to Clubs</button>
-        <span id="career-market-club-name"></span>
+    <!-- LEVEL 1: one page per league (+ Free Agents) - arrow keys/swipe to
+         browse, Enter to drill in. Same interaction model as the main hub's
+         mode-browser (see MODE_PAGES/goToModePage), generalised via
+         goToCarouselIdx/bindCarouselSwipe in game.js. -->
+    <div id="market-league-view" class="market-nav-view">
+      <div class="market-carousel-wrap">
+        <button id="market-league-prev" class="mode-nav-arrow market-nav-arrow-left" aria-label="Previous league">&#10094;</button>
+        <div class="market-carousel-viewport">
+          <div id="market-league-track" class="market-league-track"></div>
+        </div>
+        <button id="market-league-next" class="mode-nav-arrow market-nav-arrow-right" aria-label="Next league">&#10095;</button>
       </div>
-      <div class="career-market-columns">
-        <div class="career-market-col">
-          <h3>Goalkeepers</h3>
-          <div id="career-market-gk" class="career-market-col-list"></div>
+      <div id="market-league-dots" class="mode-browser-dots-inline"></div>
+    </div>
+    <!-- LEVEL 2: clubs within the chosen league. -->
+    <div id="market-club-view" class="market-nav-view hidden">
+      <button id="market-club-back" class="market-level-back">&#8592; Leagues</button>
+      <div class="market-carousel-wrap">
+        <button id="market-club-prev" class="mode-nav-arrow market-nav-arrow-left" aria-label="Previous club">&#10094;</button>
+        <div class="market-carousel-viewport">
+          <div id="market-club-track" class="market-club-track"></div>
         </div>
-        <div class="career-market-col">
-          <h3>Defenders</h3>
-          <div id="career-market-def" class="career-market-col-list"></div>
+        <button id="market-club-next" class="mode-nav-arrow market-nav-arrow-right" aria-label="Next club">&#10095;</button>
+      </div>
+      <div id="market-club-dots" class="mode-browser-dots-inline"></div>
+    </div>
+    <!-- LEVEL 3: one page per position within the chosen club/Free Agents. -->
+    <div id="market-position-view" class="market-nav-view hidden">
+      <button id="market-position-back" class="market-level-back">&#8592; <span id="market-position-back-label">Clubs</span></button>
+      <div class="career-market-club-header">
+        <span id="market-position-club-name"></span>
+      </div>
+      <div id="market-position-tabs" class="market-position-tabs"></div>
+      <div class="market-carousel-wrap">
+        <button id="market-position-prev" class="mode-nav-arrow market-nav-arrow-left" aria-label="Previous position">&#10094;</button>
+        <div class="market-carousel-viewport">
+          <div id="market-position-track" class="market-position-track"></div>
         </div>
-        <div class="career-market-col">
-          <h3>Midfielders</h3>
-          <div id="career-market-mid" class="career-market-col-list"></div>
-        </div>
-        <div class="career-market-col">
-          <h3>Attackers</h3>
-          <div id="career-market-fwd" class="career-market-col-list"></div>
-        </div>
+        <button id="market-position-next" class="mode-nav-arrow market-nav-arrow-right" aria-label="Next position">&#10095;</button>
       </div>
     </div>
   </div>
@@ -375,6 +484,7 @@
 <!-- ONLINE: MODE PICKER - same "box design" grid as every other setup screen
      (Play/Season/Cup/Career), rather than a single centered card. -->
 <div id="online-menu-screen" class="screen hidden match-setup-custom custom-setup-screen theme-online">
+  <div class="mode-abstract-bg" aria-hidden="true"></div>
   <div class="setup-top-row">
     <button id="btn-online-host" class="quarter-box online-host-box">
       <span class="kickoff-word">Host Game</span>
@@ -382,10 +492,17 @@
     <button id="btn-online-join" class="quarter-box online-join-box">
       <span class="kickoff-word">Join Game</span>
     </button>
+    <button id="btn-online-quickmatch" class="quarter-box online-quickmatch-box">
+      <span class="kickoff-word">Quick Match</span>
+    </button>
   </div>
   <div class="setup-bottom-row">
     <div class="quarter-box online-hint-box">
-      <p class="hint-text">Play a friend on a different network - host gets a short room code to share, your friend types it in to join.</p>
+      <!-- Persists across sessions (see loadLifetime/recordOnlineResult) -
+           nothing else on this screen carried any record of past online
+           games before. -->
+      <div id="online-history" class="season-stat-row"></div>
+      <p class="hint-text">Play a friend on a different network - host gets a short room code to share, your friend types it in to join. Or skip the code entirely with Quick Match, which pairs you with anyone else currently searching.</p>
       <button id="btn-online-back" class="back-btn-overlap">Back</button>
     </div>
   </div>
@@ -407,6 +524,25 @@
     <div class="quarter-box online-status-box">
       <p id="online-host-status" class="hint-text"></p>
       <button id="btn-online-host-back" class="back-btn-overlap">Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- ONLINE: QUICK MATCH - no code to share/type, just waits in the relay's
+     matchmaking queue (see server.js's quickQueue) until another Quick
+     Match search shows up, then proceeds exactly like a manual host/join
+     pairing from that point on. -->
+<div id="online-quickmatch-screen" class="screen hidden match-setup-custom custom-setup-screen theme-online">
+  <div class="setup-top-row">
+    <div class="quarter-box online-code-box">
+      <span class="clock-title">Quick Match</span>
+      <p class="hint-text">Looking for another player searching right now - no code needed, you'll be paired automatically.</p>
+    </div>
+  </div>
+  <div class="setup-bottom-row">
+    <div class="quarter-box online-status-box">
+      <p id="online-quickmatch-status" class="hint-text">Searching for an opponent...</p>
+      <button id="btn-online-quickmatch-back" class="back-btn-overlap">Cancel</button>
     </div>
   </div>
 </div>
@@ -453,6 +589,7 @@
       </div>
     </div>
     <div class="team-box" id="online-team-box">
+      <div class="team-box-flair" aria-hidden="true"></div>
       <button id="online-team-prev" class="team-arrow" aria-label="Previous team">&#10094;</button>
       <span id="online-team-name" class="team-box-name">Team</span>
       <button id="online-team-next" class="team-arrow" aria-label="Next team">&#10095;</button>
@@ -482,6 +619,7 @@
 
 <!-- SETTINGS -->
 <div id="settings-screen" class="screen hidden theme-settings">
+  <div class="mode-abstract-bg" aria-hidden="true"></div>
   <div class="setup-card">
     <h1>SETTINGS</h1>
 
@@ -562,6 +700,7 @@
 
 <!-- LIFETIME STATS / TROPHY CABINET -->
 <div id="stats-screen" class="screen hidden theme-stats">
+  <div class="mode-abstract-bg" aria-hidden="true"></div>
   <div class="setup-card">
     <h1>CAREER STATS</h1>
     <div id="stats-grid"></div>
@@ -570,16 +709,33 @@
 </div>
 
 <!-- MATCH SETUP -->
-<div id="setup-screen" class="screen hidden match-setup-custom custom-setup-screen">
+<div id="setup-screen" class="screen hidden match-setup-custom custom-setup-screen theme-play">
+  <div class="mode-abstract-bg" aria-hidden="true"></div>
   <div class="setup-top-row">
     <div class="team-box" id="setup-team-box">
+      <div class="team-box-flair" aria-hidden="true"></div>
       <button id="setup-team-prev" class="team-arrow" aria-label="Previous team">&#10094;</button>
-      <span id="setup-team-name" class="team-box-name">Team</span>
+      <div class="team-box-center">
+        <div class="team-box-league-row">
+          <button id="setup-team-league-prev" class="league-arrow" aria-label="Previous league">&#10094;</button>
+          <span id="setup-team-league" class="team-box-league">League</span>
+          <button id="setup-team-league-next" class="league-arrow" aria-label="Next league">&#10095;</button>
+        </div>
+        <span id="setup-team-name" class="team-box-name">Team</span>
+      </div>
       <button id="setup-team-next" class="team-arrow" aria-label="Next team">&#10095;</button>
     </div>
     <div class="team-box" id="setup-opp-box">
+      <div class="team-box-flair" aria-hidden="true"></div>
       <button id="setup-opp-prev" class="team-arrow" aria-label="Previous team">&#10094;</button>
-      <span id="setup-opp-name" class="team-box-name">Team</span>
+      <div class="team-box-center">
+        <div class="team-box-league-row">
+          <button id="setup-opp-league-prev" class="league-arrow" aria-label="Previous league">&#10094;</button>
+          <span id="setup-opp-league" class="team-box-league">League</span>
+          <button id="setup-opp-league-next" class="league-arrow" aria-label="Next league">&#10095;</button>
+        </div>
+        <span id="setup-opp-name" class="team-box-name">Team</span>
+      </div>
       <button id="setup-opp-next" class="team-arrow" aria-label="Next team">&#10095;</button>
     </div>
   </div>
@@ -606,6 +762,8 @@
         <button class="rank-tile rank-diamond" data-skill="champion"><span class="rank-name">Diamond</span></button>
         <button class="rank-tile rank-platinum" data-skill="grandmaster"><span class="rank-name">Platinum</span></button>
         <button class="rank-tile rank-champion" data-skill="legend"><span class="rank-name">Champion</span></button>
+        <button class="rank-tile rank-mythic" data-skill="mythic"><span class="rank-name">Legendary</span></button>
+        <button class="rank-tile rank-invincible" data-skill="invincible"><span class="rank-name">Invincible</span></button>
       </div>
     </div>
   </div>
@@ -620,6 +778,7 @@
         <button id="cards-home-btn" class="card-badge hidden">&#x1F7E8;<span id="cards-home-count">0</span></button>
         <div id="cards-home-list" class="card-dropdown hidden"></div>
       </div>
+      <span id="crest-home" class="team-crest"></span>
       <span id="score-home-name" class="team-name">HOME</span>
       <span id="score-home" class="score-num">0</span>
     </div>
@@ -633,6 +792,7 @@
     <div id="score-panel-away" class="score-panel">
       <span id="score-away" class="score-num">0</span>
       <span id="score-away-name" class="team-name">AWAY</span>
+      <span id="crest-away" class="team-crest"></span>
       <div class="card-indicator" id="cards-away-wrap">
         <button id="cards-away-btn" class="card-badge hidden">&#x1F7E8;<span id="cards-away-count">0</span></button>
         <div id="cards-away-list" class="card-dropdown hidden"></div>
@@ -679,15 +839,25 @@
       <button id="td-switch" class="action-btn">Switch</button>
       <button id="td-tackle" class="action-btn">Tackle</button>
       <button id="td-pass" class="action-btn">Pass</button>
-      <button id="td-shoot" class="action-btn">Shoot</button>
+      <!-- Doubles as a small drag joystick (same footprint as the button) -
+           see bindShootJoystick in game.js. The knob just visually tracks
+           the drag; the button itself still handles all the pointer events. -->
+      <button id="td-shoot" class="action-btn">
+        Shoot
+        <span id="td-shoot-knob"></span>
+      </button>
       <div id="actions-drag-handle" class="control-drag-handle hidden">Drag</div>
     </div>
   </div>
 
   <!-- GOAL CELEBRATION BANNER -->
   <div id="goal-banner" class="overlay hidden">
+    <div class="goal-flash" aria-hidden="true"></div>
     <div class="overlay-box goal-box">
+      <div class="goal-sunburst" aria-hidden="true"></div>
+      <span id="goal-banner-crest" class="team-crest goal-crest"></span>
       <h2 id="goal-banner-text">GOAL!</h2>
+      <p id="goal-banner-score" class="goal-score-line"></p>
     </div>
   </div>
 
@@ -697,17 +867,32 @@
 
   <!-- PAUSE OVERLAY -->
   <div id="pause-overlay" class="overlay hidden">
-    <div class="overlay-box">
-      <h2>PAUSED</h2>
-      <button id="btn-resume">Resume (P)</button>
-      <button id="btn-subs">Substitutions</button>
-      <button id="btn-quit-to-menu">Quit to Main Menu</button>
+    <div class="overlay-box pause-box">
+      <div class="mode-abstract-bg" aria-hidden="true"></div>
+      <div class="pause-content">
+        <h2>PAUSED</h2>
+        <button id="btn-resume" class="pause-action pause-action-resume">&#9658; Resume <span class="pause-key-hint">P</span></button>
+        <button id="btn-subs" class="pause-action pause-action-subs">&#128101; Substitutions</button>
+        <button id="btn-quit-to-menu" class="pause-action pause-action-quit">&#128682; Quit to Main Menu</button>
+      </div>
     </div>
   </div>
 
-  <!-- ONLINE: CONNECTION LOST - shown mid-match if the peer-to-peer link
-       fails or closes unexpectedly (not shown for a deliberate local quit -
-       see showConnectionLostOverlay/teardownOnline). -->
+  <!-- ONLINE: RECONNECTING - shown mid-match the moment the peer-to-peer
+       link drops, while attemptOnlineReconnect tries to re-establish it
+       against the same room code. Resolves to either quietly hiding again
+       (success) or the CONNECTION LOST overlay below (gave up/timed out). -->
+  <div id="online-reconnecting-overlay" class="overlay hidden">
+    <div class="overlay-box">
+      <h2>RECONNECTING</h2>
+      <p id="online-reconnect-status" class="hint-text">Connection dropped - reconnecting...</p>
+      <button id="btn-online-reconnect-give-up">Give Up &amp; Return to Menu</button>
+    </div>
+  </div>
+
+  <!-- ONLINE: CONNECTION LOST - shown once a mid-match reconnect attempt
+       has been given up on (not shown for a deliberate local quit - see
+       showConnectionLostOverlay/teardownOnline). -->
   <div id="online-lost-overlay" class="overlay hidden">
     <div class="overlay-box">
       <h2>CONNECTION LOST</h2>
@@ -716,57 +901,59 @@
     </div>
   </div>
 
-  <!-- HALFTIME OVERLAY -->
+  <!-- HALFTIME OVERLAY - same pitch-green hub identity as the pause menu
+       (.pause-box/.pause-content, see style.css) instead of a plain dark
+       settings-style box. -->
   <div id="halftime-overlay" class="overlay hidden">
-    <div class="overlay-box">
-      <h2>HALF TIME</h2>
-      <p id="halftime-timer">30</p>
-      <button id="btn-subs-halftime">Substitutions</button>
-      <button id="btn-continue-halftime">Continue</button>
-    </div>
-  </div>
-
-  <!-- SUBSTITUTIONS OVERLAY -->
-  <div id="subs-overlay" class="overlay hidden">
-    <div class="overlay-box">
-      <h2>SUBSTITUTIONS</h2>
-      <p id="subs-remaining"></p>
-      <p class="hint-text">Pick a player to sub off, then a bench player to bring on.</p>
-      <div class="subs-col-label">On Pitch</div>
-      <div id="subs-onpitch" class="subs-list"></div>
-      <div class="subs-col-label">Bench</div>
-      <div id="subs-bench" class="subs-list"></div>
-      <p id="subs-bench-hint" class="hint-text hidden">Select a player to sub off first.</p>
-      <button id="btn-subs-close">Done</button>
+    <div class="overlay-box pause-box">
+      <div class="mode-abstract-bg" aria-hidden="true"></div>
+      <div class="pause-content">
+        <h2>HALF TIME</h2>
+        <p id="halftime-timer">30</p>
+        <button id="btn-subs-halftime" class="pause-action pause-action-subs">&#128101; Substitutions</button>
+        <button id="btn-continue-halftime" class="pause-action pause-action-resume">&#9658; Continue</button>
+      </div>
     </div>
   </div>
 
   <!-- FULL TIME OVERLAY -->
   <div id="fulltime-overlay" class="overlay hidden">
-    <div class="overlay-box">
-      <h2>FULL TIME</h2>
-      <p id="fulltime-score"></p>
-      <p id="fulltime-motm" class="motm-line hidden"></p>
-      <table id="fulltime-stats"></table>
-      <div id="fulltime-achievements"></div>
-      <button id="btn-rematch">Rematch</button>
-      <button id="btn-continue-season" class="hidden">Continue Season</button>
-      <button id="btn-continue-cup" class="hidden">Continue Cup</button>
-      <button id="btn-continue-career" class="hidden">Continue Career</button>
-      <button id="btn-fulltime-menu">Return to Main Menu</button>
+    <div class="overlay-box pause-box">
+      <div class="mode-abstract-bg" aria-hidden="true"></div>
+      <div class="pause-content">
+        <h2>FULL TIME</h2>
+        <p id="fulltime-score"></p>
+        <p id="fulltime-motm" class="motm-line hidden"></p>
+        <table id="fulltime-stats"></table>
+        <div id="fulltime-achievements"></div>
+        <button id="btn-rematch">Rematch</button>
+        <!-- Online-only - a real rematch against the same connected friend
+           (see requestOnlineRematch/onlineReadyClicked's reuse), not just a
+           locally-restarted match like btn-rematch above (hidden whenever
+           G.online is set - see finalizeFulltime). -->
+        <button id="btn-online-rematch" class="hidden">Rematch</button>
+        <p id="online-rematch-status" class="hint-text hidden"></p>
+        <button id="btn-continue-season" class="hidden">Continue Season</button>
+        <button id="btn-continue-cup" class="hidden">Continue Cup</button>
+        <button id="btn-continue-career" class="hidden">Continue Career</button>
+        <button id="btn-fulltime-menu">Return to Main Menu</button>
+      </div>
     </div>
   </div>
 
-  <!-- CAREER: SEASON COMPLETE OVERLAY - shown once a career season's fixture
-       list runs out (see endCareerSeason/showSeasonCompleteOverlay), instead
-       of silently continuing straight to the dashboard. Has to be closed. -->
-  <div id="season-complete-overlay" class="overlay hidden">
-    <div class="overlay-box">
-      <h2>SEASON COMPLETE</h2>
-      <p id="season-complete-club"></p>
-      <div id="season-complete-stats" class="season-stat-row"></div>
-      <div id="season-complete-trophies"></div>
-      <button id="btn-season-complete-continue">Continue</button>
+  <!-- CUP: TROPHY LIFT - shown once, right after winning the Final (see
+       showCupTrophyMoment), before navigating on to cup-progress-screen.
+       Sits alongside season-complete-overlay/fulltime-overlay here (shown
+       while match-screen is still the active screen, dismissed BEFORE
+       showScreen('cup-progress-screen') runs) rather than being its own
+       .screen - avoids the same parent-hides-child trap subs-screen hit
+       when it was a .screen nested in here. -->
+  <div id="cup-trophy-overlay" class="overlay hidden">
+    <div class="overlay-box cup-trophy-box">
+      <div class="cup-trophy-icon">&#127942;</div>
+      <h2>CHAMPIONS!</h2>
+      <p id="cup-trophy-club" class="cup-trophy-club"></p>
+      <button id="btn-cup-trophy-continue" class="pause-action pause-action-resume">Continue</button>
     </div>
   </div>
 
@@ -792,6 +979,66 @@
     </div>
   </div>
 
+</div>
+
+<!-- CAREER: SEASON COMPLETE OVERLAY - shown once a career season's fixture
+     list runs out (see endCareerSeason/showSeasonCompleteOverlay), instead
+     of silently continuing straight to the dashboard. Has to be closed.
+     A TOP-LEVEL sibling, NOT nested inside #match-screen (unlike
+     cup-trophy-overlay above, which is fine nested there because it's shown
+     AND dismissed while match-screen is still the active screen) - this one
+     is triggered from renderCareerDashboard, either right as match-screen
+     is being hidden in favour of career-dashboard-screen, or from the Sim
+     button where match-screen isn't the active screen at all. Nested inside
+     match-screen, showScreen() hiding match-screen (display:none) buries
+     this overlay too even after its own .hidden class is removed - it was
+     stuck invisible despite classList.remove('hidden') running fine. -->
+<div id="season-complete-overlay" class="overlay hidden">
+  <div class="overlay-box season-complete-box">
+    <h2>SEASON COMPLETE</h2>
+    <p id="season-complete-club"></p>
+    <div id="season-complete-trophies"></div>
+    <!-- Every cup/continental competition actually played this season -
+         won, or knocked out at which round (see careerRoundName/
+         CAREER.seasonEliminations) - shown before the league table info
+         below, same order as it's discovered over a season. -->
+    <div id="season-complete-competitions" class="season-complete-competitions"></div>
+    <div id="season-complete-stats" class="season-stat-row"></div>
+    <button id="btn-season-complete-continue">Continue</button>
+  </div>
+</div>
+
+<!-- SUBSTITUTIONS PAGE - a full page (same hub-style theming as everywhere
+     else, same player-card look as the Career squad screens), not a small
+     popup, since it's carrying a lot more than a quick confirm dialog now.
+     A sibling of #match-screen (NOT nested inside it, unlike the overlays
+     above) - showScreen('subs-screen') hides every OTHER .screen including
+     match-screen itself, which would have taken this down with it if it
+     were still a descendant. -->
+<div id="subs-screen" class="screen hidden theme-career">
+  <div class="mode-abstract-bg" aria-hidden="true"></div>
+  <h1 class="subs-screen-title">Substitutions</h1>
+  <p id="subs-remaining"></p>
+  <!-- Same formation-pitch + bench layout as the Career squad screen (see
+       .career-lineup-body/#formation-pitch) rather than a plain list - your
+       actual starting XI at their real pitch positions, each with a live
+       stamina bar and injury icon above their head (see renderSubsScreen). -->
+  <div class="subs-screen-body">
+    <div class="formation-pitch" id="subs-formation-pitch"></div>
+    <div class="subs-bench-panel">
+      <h3>Bench</h3>
+      <div id="subs-bench" class="subs-list"></div>
+      <p id="subs-bench-hint" class="hint-text hidden">Select a player on the pitch to sub off first.</p>
+    </div>
+  </div>
+  <button id="btn-subs-close" class="subs-back-btn">&#8592; Back to Pause</button>
+  <!-- Auto-returns to pause (and resumes) if you wander off mid-decision
+       rather than leaving the match paused indefinitely - see
+       openSubs/startSubsAutoTimer in game.js. -->
+  <div id="subs-timer-wrap">
+    <p id="subs-timer-text">Back to the match in <span id="subs-timer-seconds">15</span>s</p>
+    <div class="subs-timer-track"><div id="subs-timer-fill"></div></div>
+  </div>
 </div>
 
 <!-- Shown only on narrow, portrait touchscreens while a match is on screen -->

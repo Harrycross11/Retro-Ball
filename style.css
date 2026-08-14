@@ -78,104 +78,303 @@ select {
 
 .hidden { display: none !important; }
 
-/* Main menu - Play as one full-width "primary action" card up top, the rest
-   in a 2-column grid of rounded icon cards below (previously five full-bleed
-   bars stacked edge-to-edge - this reads more like a mobile app's home
-   screen: distinct tappable cards with real spacing instead of flush bars). */
+/* Main menu - a full-screen, swipeable/arrow-key-browsable page per mode
+   (see MODE_PAGES/goToModePage in game.js), not a grid of buttons. Each
+   .mode-page is a full 100vw slide inside #mode-browser-track, which JS
+   slides via transform: translateX to move between them. */
 #main-menu.menu-screen {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  grid-auto-rows: 1fr;
-  gap: 12px;
-  align-items: stretch;
-  justify-content: stretch;
-  padding: 76px 14px 14px;
+  display: block;
+  padding: 0;
   position: relative;
   overflow: hidden;
 }
 .menu-title {
   position: absolute;
-  top: 14px;
+  top: 10px;
   left: 0;
   right: 0;
-  z-index: 5;
+  z-index: 6;
   margin: 0;
   pointer-events: none;
-  font-size: 28px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  opacity: 0.8;
   text-shadow: 0 2px 6px rgba(0,0,0,0.85), 0 0 16px rgba(0,0,0,0.6);
 }
-.menu-panel {
-  min-height: 0;
+
+#mode-browser-track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+  touch-action: pan-y;
+}
+.mode-page {
+  flex: 0 0 100vw;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+/* Abstract flowing line art (see renderModeAbstractLines in game.js) - a
+   handful of soft curved strokes in the page's own --accent colour, sat
+   behind the illustrated scenes and gently drifting/rotating/scaling on a
+   slow, smooth loop - an ambient backdrop rather than a literal texture
+   (a straight repeating-stripe "mown grass" pattern used to sit here
+   instead, which read as flat/generic rather than actually appealing).
+   Bottom-most layer - everything else paints over it. */
+.mode-abstract-bg {
+  position: absolute;
+  inset: -18%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.55;
+  filter: blur(0.5px);
+  animation: mode-abstract-flow 42s ease-in-out infinite alternate;
+}
+.mode-abstract-bg svg { width: 100%; height: 100%; display: block; }
+.mode-abstract-bg path {
+  fill: none;
+  stroke: var(--accent, rgba(255,255,255,0.4));
+  stroke-linecap: round;
+}
+@keyframes mode-abstract-flow {
+  0%   { transform: translate(-2%, -1%) rotate(-1.5deg) scale(1.06); }
+  50%  { transform: translate(2.5%, 2%) rotate(1.5deg) scale(1.12); }
+  100% { transform: translate(-1.5%, 2.5%) rotate(-1deg) scale(1.08); }
+}
+
+/* Moving background art (see renderModeSceneLayers in game.js) - a handful
+   of canvas-illustrated scenes per mode (a goal-mouth for Kick-Off, a
+   trophy for Cup, a tactics board for Career, etc. - built from the same
+   sprite/shape primitives as the rest of the game, not photos), each
+   drifting in from one side, growing more visible through the centre, then
+   drifting out the other side and fading - continuously replaced by the
+   next one via staggered animation-delay (see .mode-scene-layer). Sits
+   above the abstract lines, below the vignette/content. */
+.mode-scene-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.mode-scene-layer {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 62vh;
+  height: 62vh;
+  margin-left: -31vh;
+  margin-top: -31vh;
+  opacity: 0;
+  animation: mode-scene-flow 26s linear infinite;
+}
+@keyframes mode-scene-flow {
+  0%   { transform: translateX(75vw) scale(0.88); opacity: 0; }
+  10%  { opacity: 0.2; }
+  50%  { transform: translateX(0vw) scale(1.05); opacity: 0.26; }
+  90%  { opacity: 0.2; }
+  100% { transform: translateX(-75vw) scale(0.88); opacity: 0; }
+}
+
+/* Depth on top of each theme's flat gradient (and the abstract lines/moving
+   scenes below it) - a couple of soft floodlight-style highlights from the
+   corners, and a vignette pulling focus back to the centre - so the page
+   reads as an actual lit space rather than a solid colour swatch, and the
+   art behind it stays legible rather than competing with the text. */
+.mode-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 12% -8%, rgba(255,255,255,0.16), transparent 42%),
+    radial-gradient(circle at 108% 8%, rgba(255,255,255,0.10), transparent 40%),
+    radial-gradient(circle at 100% 112%, rgba(255,255,255,0.09), transparent 45%),
+    radial-gradient(ellipse at 55% 50%, transparent 30%, rgba(0,0,0,0.4) 100%);
+}
+.mode-collage, .mode-info { position: relative; z-index: 2; }
+
+/* The vertical collage strip - a stack of the game's own player-sprite
+   portraits (see renderModeCollage in game.js), overlapping slightly like a
+   real photo collage rather than sitting in neat evenly-spaced rows. */
+.mode-collage {
+  flex: 0 0 190px;
+  width: 190px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  background: rgba(0,0,0,0.18);
+  border-right: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 4px 0 18px rgba(0,0,0,0.25);
+}
+.mode-collage canvas {
+  width: 100%;
+  aspect-ratio: 190 / 270;
+  display: block;
+  margin-top: -38px;
+  filter: drop-shadow(0 3px 5px rgba(0,0,0,0.5));
+}
+.mode-collage canvas:first-child { margin-top: 0; }
+
+.mode-info {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+}
+.mode-info-top {
+  flex: 1 1 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  margin: 0;
-  padding: 14px;
-  border: none;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  font-size: 22px;
-  font-weight: 600;
-  color: #fff;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
-  cursor: pointer;
-  transition: filter 0.2s ease, transform 0.1s ease;
+  padding: 20px;
 }
-.menu-panel:hover { filter: brightness(1.15); }
-.menu-panel:active { filter: brightness(0.9); transform: scale(0.98); }
-/* Play is the primary action - full width across both columns, up top. */
-#main-menu .panel-play { grid-column: 1 / -1; font-size: 27px; }
+.mode-name {
+  margin: 0;
+  font-size: 52px;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 4px 18px rgba(0,0,0,0.55);
+  letter-spacing: 1px;
+}
+.mode-info-bottom {
+  flex: 1 1 50%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 28px 44px;
+  text-align: center;
+  background: linear-gradient(to top, rgba(0,0,0,0.4), transparent);
+}
+.mode-desc {
+  margin: 0;
+  font-size: 16px;
+  max-width: 480px;
+  color: rgba(255,255,255,0.92);
+  line-height: 1.4;
+}
+/* Fades between rotating tips (see cycleModeTip) rather than snapping. */
+.mode-tip {
+  margin: 0;
+  font-size: 13px;
+  max-width: 460px;
+  min-height: 18px;
+  color: rgba(255,255,255,0.75);
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+.mode-tip.fading { opacity: 0; }
+.mode-enter-btn {
+  font-size: 19px;
+  font-weight: 700;
+  padding: 12px 40px;
+  border-radius: 999px;
+  border: none;
+  background: var(--accent, #3b82f6);
+  color: #0b0f14;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  cursor: pointer;
+  font-family: inherit;
+}
+.mode-enter-btn:hover { filter: brightness(1.1); }
+.mode-enter-btn:active { transform: scale(0.97); }
 
-/* Continue Career shortcut - same teal identity as the Career panel below,
-   full width, sitting above Play since resuming a save is the single
-   highest-value action for a returning player (see
-   updateMenuContinueCareerCard - hidden entirely when no save exists). */
-.menu-continue-card {
-  grid-column: 1 / -1;
+/* Continue Career shortcut, now living inside the Career page itself rather
+   than a separate main-menu card - same function (see
+   updateMenuContinueCareerCard, hidden entirely when no save exists), just
+   docked as a secondary action above the main Play button. */
+.mode-continue-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: 2px;
   margin: 0;
-  padding: 10px 14px;
-  border: none;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  background: linear-gradient(160deg, #17a591, #0b3733);
+  padding: 8px 22px;
+  border-radius: 999px;
+  border: 2px solid rgba(255,255,255,0.5);
+  background: rgba(0,0,0,0.28);
   color: #fff;
   cursor: pointer;
   font-family: inherit;
   transition: filter 0.2s ease, transform 0.1s ease;
 }
-.menu-continue-card:hover { filter: brightness(1.15); }
-.menu-continue-card:active { filter: brightness(0.9); transform: scale(0.98); }
-.menu-continue-label { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; opacity: 0.85; }
-.menu-continue-club { font-size: 18px; font-weight: bold; }
-.menu-continue-detail { font-size: 12px; opacity: 0.8; }
+.mode-continue-btn:hover { filter: brightness(1.2); }
+.mode-continue-btn:active { transform: scale(0.97); }
+.mode-continue-btn .menu-continue-label { font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; opacity: 0.85; }
+.mode-continue-btn .menu-continue-club { font-size: 15px; font-weight: bold; }
+.mode-continue-btn .menu-continue-detail { font-size: 11px; opacity: 0.8; }
 
-/* Prefixed with #main-menu so these outrank the generic button/button:hover
-   rules (which would otherwise flatten every panel to plain green on hover).
-   Flat soft-diagonal gradients (not the old repeating-stripe patterns) - same
-   colour identity per section as before, calmer rendering. Matches the
-   equivalent .theme-* block each panel leads into. */
-#main-menu .panel-play { background: linear-gradient(160deg, #1e8449, #0f3d20); }
-#main-menu .panel-season { background: linear-gradient(160deg, #2f5fdb, #12224f); }
-#main-menu .panel-cup { background: linear-gradient(160deg, #d1a72e, #7a4a0a); }
-#main-menu .panel-career { background: linear-gradient(160deg, #17a591, #0b3733); }
-/* Indigo/violet - distinct from every other panel's colour family (no other
-   panel is purple), reads as "network/connect" rather than a pitch/trophy
-   theme like the rest of the menu. */
-#main-menu .panel-online { background: linear-gradient(160deg, #6633b3, #1c1440); }
-/* Full width, same treatment as Play at the top - without this, removing
-   Practice left an odd number of cards (Season/Cup/Career/Online) in the
-   2-column grid below, so Exit would sit alone in a half-empty row instead
-   of a deliberate full-width one. */
-#main-menu .panel-exit { grid-column: 1 / -1; background: linear-gradient(160deg, #9b3a3a, #241a1f); }
+#mode-browser-dots {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: flex;
+  gap: 9px;
+}
+.mode-dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.35);
+  box-shadow: none;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.mode-dot:hover { filter: none; background: rgba(255,255,255,0.55); }
+.mode-dot.active { background: #fff; transform: scale(1.3); box-shadow: 0 0 8px rgba(255,255,255,0.7); }
 
-/* Settings/stats - deliberately NOT part of the card grid above (that would
-   break the clean 1-primary + 2-column-of-4 + 1-full-width layout) - just corner buttons. */
+.mode-nav-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 6;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  margin: 0;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.35);
+  border: 2px solid rgba(255,255,255,0.4);
+  color: #fff;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: none;
+}
+.mode-nav-arrow:hover { background: rgba(0,0,0,0.55); }
+.mode-nav-prev { left: 14px; }
+.mode-nav-next { right: 14px; }
+
+@media (max-width: 640px) {
+  .mode-collage { flex-basis: 118px; width: 118px; }
+  .mode-collage canvas { margin-top: -24px; }
+  .mode-name { font-size: 36px; }
+  .mode-desc { font-size: 14px; }
+  .mode-scene-layer { width: 50vh; height: 50vh; margin-left: -25vh; margin-top: -25vh; }
+  .mode-info-bottom { padding: 12px 18px 40px; gap: 10px; }
+  .mode-nav-arrow { width: 36px; height: 36px; font-size: 15px; }
+}
+
+/* Settings/stats/exit - deliberately not part of any mode page (they're not
+   modes) - just persistent corner buttons floating over the browser. */
 #menu-corner-buttons {
   position: absolute;
   top: 10px;
@@ -199,6 +398,24 @@ select {
 }
 .menu-corner-btn:hover { background: rgba(13,17,23,0.85); }
 
+/* Exit's icon is a real "do not" / prohibition sign (circle + diagonal
+   bar), same idea as a "no smoking" sign - drawn with a pseudo-element bar
+   across the button's own existing circular border, rather than an emoji
+   glyph (inconsistent rendering across platforms, and not actually shaped
+   like a prohibition sign). */
+.btn-exit-prohibit { position: relative; }
+.btn-exit-prohibit::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3px;
+  height: 27px;
+  background: rgba(255,255,255,0.85);
+  transform: translate(-50%, -50%) rotate(45deg);
+  border-radius: 2px;
+}
+
 /* Fixed (not tied to any one screen's own layout) so it floats consistently
    in the same corner everywhere it's shown - see showScreen for when. */
 .home-corner-btn {
@@ -209,8 +426,11 @@ select {
 }
 
 @media (max-height: 500px), (max-width: 380px) {
-  .menu-title { font-size: 20px; top: 6px; }
-  .menu-panel { font-size: 16px; gap: 10px; }
+  .menu-title { font-size: 12px; top: 6px; }
+  .mode-name { font-size: 30px; }
+  .mode-collage { flex-basis: 92px; width: 92px; }
+  .mode-collage canvas { margin-top: -18px; }
+  .mode-scene-layer { width: 40vh; height: 40vh; margin-left: -20vh; margin-top: -20vh; }
   .setup-card { padding: 16px 20px; }
 }
 
@@ -322,6 +542,13 @@ select {
   background: linear-gradient(160deg, #4527a0, #1c1440);
 }
 .custom-setup-screen .online-join-box:hover { filter: brightness(1.12); }
+.custom-setup-screen .online-quickmatch-box {
+  cursor: pointer;
+  color: #fff;
+  font-family: inherit;
+  background: linear-gradient(160deg, #a78bfa, #6633b3);
+}
+.custom-setup-screen .online-quickmatch-box:hover { filter: brightness(1.12); }
 /* Purely informational - not clickable, so no hover/cursor treatment. */
 .online-hint-box { cursor: default; padding: 10px 16px; }
 .online-hint-box .hint-text { margin: 0; }
@@ -344,15 +571,18 @@ select {
 .online-status-box { cursor: default; padding: 10px 16px; }
 .online-status-box .hint-text { margin: 0; max-width: 220px; }
 
-/* Settings screen */
+/* Settings screen - each section is its own card now (background/border/
+   radius) rather than a plain list separated by border-bottom rules, same
+   "distinct panel" language as everywhere else in the app. */
 .settings-section {
   width: 100%;
   max-width: 420px;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.15);
+  margin-bottom: 12px;
+  padding: 14px 16px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md);
 }
-.settings-section:last-of-type { border-bottom: none; }
 .settings-section h2 { font-size: 15px; margin: 0 0 8px; text-align: left; opacity: 0.85; }
 /* A lighter-weight sub-heading for grouping two related controls under one
    .settings-section (e.g. Kit Clash Sensitivity + Camera Zoom under
@@ -385,7 +615,7 @@ select {
   opacity: 0.7;
 }
 .settings-toggle-btn.active {
-  background: var(--accent, #64748b);
+  background: linear-gradient(135deg, var(--accent, #64748b), rgba(0,0,0,0.35));
   border-color: rgba(255,255,255,0.5);
   opacity: 1;
 }
@@ -417,11 +647,12 @@ select {
   max-width: 420px;
 }
 .stat-tile {
-  background: rgba(255,255,255,0.06);
+  background: linear-gradient(160deg, rgba(255,255,255,0.1), rgba(255,255,255,0.02));
   border: 1px solid rgba(255,255,255,0.2);
   border-radius: 10px;
   padding: 12px 8px;
   text-align: center;
+  box-shadow: var(--shadow-sm);
 }
 .stat-tile .stat-tile-value { display: block; font-size: 26px; font-weight: bold; color: #ffe14d; }
 .stat-tile .stat-tile-label { display: block; font-size: 12px; opacity: 0.8; margin-top: 2px; }
@@ -443,6 +674,13 @@ select {
   min-height: 0;
   display: flex;
   gap: 10px;
+  /* Sits above .mode-abstract-bg (see these screens' theme-x class + the
+     abstract flowing lines now sat behind them) - without an explicit
+     z-index here, an absolutely-positioned sibling paints on top of
+     ordinary in-flow content regardless of DOM order, which would bury
+     the actual team/rank boxes under the decorative background. */
+  position: relative;
+  z-index: 1;
 }
 .team-box, .quarter-box {
   flex: 1 1 0;
@@ -459,23 +697,135 @@ select {
 }
 
 /* Team boxes - background/text colour set inline via --team-color/--team-text
-   from JS (buildTeam's own club colours aren't known ahead of time). */
+   from JS (buildTeam's own club colours aren't known ahead of time). A
+   diagonal gloss sheen over a top-to-bottom shade (same treatment as the
+   in-match scoreboard's score-panel) instead of a flat fill, plus a
+   footer-stripe inset shadow, so it reads as a real broadcast-style panel
+   rather than a plain coloured rectangle. */
 .team-box {
-  background: var(--team-color, #333);
+  background:
+    linear-gradient(115deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.22) 8%, transparent 30%),
+    linear-gradient(180deg, var(--team-color, #333) 0%, var(--team-color, #333) 55%, rgba(0,0,0,0.32) 100%);
   color: var(--team-text, #fff);
   gap: 14px;
+  box-shadow: var(--shadow-sm), inset 0 -4px 0 var(--team-color-2, rgba(0,0,0,0.3));
+}
+/* Striped clubs (Newcastle, Southampton, Sheff Utd...) get their actual kit
+   stripe as a subtle background pattern instead of the plain gradient -
+   set via --team-stripe alongside --team-color/--team-color-2 in
+   styleTeamBox (game.js). */
+.team-box.team-box-striped {
+  background:
+    linear-gradient(115deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.22) 8%, transparent 30%),
+    /* color-mix softens the stripe instead of a full-opacity colour (a real
+       black/white kit like Newcastle's was harsh at 100%) - it still reads
+       as striped, just blended into the panel rather than fighting it. */
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--team-stripe, #fff) 55%, transparent) 0px, color-mix(in srgb, var(--team-stripe, #fff) 55%, transparent) 18px, transparent 18px, transparent 54px),
+    linear-gradient(180deg, var(--team-color, #333) 0%, var(--team-color, #333) 55%, rgba(0,0,0,0.4) 100%);
+}
+/* An abstract diagonal sash in the club's secondary colour sweeping across
+   the panel - reads as "this team's kit style" without needing real badge
+   artwork (which isn't available/permitted - same constraint as the
+   mode-browser's player art). Set once per club switch in styleTeamBox. */
+.team-box-flair {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.team-box-flair::before {
+  content: '';
+  position: absolute;
+  top: -30%;
+  right: -25%;
+  width: 65%;
+  height: 180%;
+  background: var(--team-color-2, rgba(255,255,255,0.2));
+  opacity: 0.3;
+  transform: rotate(18deg);
 }
 .team-box-name {
   display: inline-block;
-  font-size: 26px;
+  font-size: 20px;
   font-weight: bold;
   text-align: center;
   min-width: 0;
-  max-width: 55%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 88%;
+  line-height: 1.15;
+  white-space: normal;
+  /* A single long word (Brentford, Wolverhampton...) has nowhere to break
+     without this - it just overflows past the chip's own edge instead of
+     wrapping, which is what "leaking out of the box" actually was.
+     overflow-wrap alone (not also word-break: break-word) - word-break:
+     break-word computes to overflow-wrap:anywhere under the hood, which
+     shrinks the box's minimum content size far more aggressively and was
+     breaking ordinary names like "Liverpool" mid-word even when there was
+     plenty of room, not just genuinely-too-long ones. overflow-wrap:
+     break-word only breaks a word as a last resort, when it truly doesn't fit. */
+  overflow-wrap: break-word;
+  position: relative;
+  z-index: 1;
 }
+/* Stacks a small league label above the team name - Play/Season/Cup now
+   pick from every league (ALL_CLUBS), not just the Premier League, so
+   there needs to be some indicator of which league you're currently
+   browsing as you cycle through all ~116 clubs. Extra top padding clears
+   the league row, which is pinned near the top of the whole .team-box
+   panel (position:absolute, see .team-box-league-row) rather than sitting
+   in normal flow right above the name. */
+.team-box-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding-top: 29px;
+}
+/* Shown as a short code (PL, BUN, ...) rather than the full league name -
+   see LEAGUE_ABBR - so it can actually be sized to read clearly instead of
+   needing to stay tiny to fit. */
+.team-box-league {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  opacity: 0.85;
+}
+/* Arrows flanking the league label - jumps straight to the first club of
+   the next/previous league (see jumpToLeagueClub) instead of stepping
+   through every club one at a time via the big team-arrow buttons either
+   side of the whole box. Pinned to the top of the panel (position:absolute)
+   rather than sitting in normal flow above the team name, so it reads like
+   a competition strip at the head of the panel instead of just floating
+   next to the name. */
+.team-box-league-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  justify-content: center;
+  z-index: 1;
+}
+.league-arrow {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: inherit;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  font-size: 10px;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-family: inherit;
+}
+.league-arrow:hover { background: rgba(0, 0, 0, 0.45); }
 /* A consistent darkish-grey chip behind every label on this screen, white
    text throughout - sized to fit its own content (inline-block) rather than
    stretching, so the team-name chip resizes automatically as you cycle
@@ -487,6 +837,10 @@ select {
   padding: 4px 10px;
   border-radius: 6px;
 }
+/* Team name needs to stay legible over any club's colours/flair sash
+   (including near-black kits like Man City's away or Fulham's home) -
+   more opaque than the shared chip default above. */
+.team-box .team-box-name { background: rgba(10, 14, 22, 0.9); }
 /* .custom-setup-screen prefix outranks the generic button:hover rule, which would
    otherwise flash every themed background in this screen to flat green on
    hover - the same issue the main menu panels had. */
@@ -504,10 +858,24 @@ select {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  /* .team-box-flair sits absolutely-positioned behind this button - without
+     an explicit stacking context here it would paint on top regardless of
+     DOM order (positioned elements paint after in-flow static ones). */
+  position: relative;
+  z-index: 1;
 }
 .custom-setup-screen .team-arrow:hover { background: rgba(0, 0, 0, 0.5); }
 
-.custom-setup-screen .quarter-box { background: var(--surface-2); }
+/* A gentle gradient + shadow instead of a flat fill, same "real button" feel
+   as the team-boxes/scoreboard - the quarter-box variants that already set
+   their own themed background (rank tiles, kickoff/season/cup start
+   buttons, online action boxes, etc.) override this with their own colours
+   further down, this is just the shared neutral default (clock/half-length
+   box and similar). */
+.custom-setup-screen .quarter-box {
+  background: linear-gradient(180deg, var(--surface-2), rgba(0,0,0,0.18));
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.06);
+}
 
 /* Clock box - a deep slate-blue panel (distinct from the shared dark quarter-
    box background, but still a neutral "utility control" colour that doesn't
@@ -598,7 +966,7 @@ select {
 .custom-setup-screen .rank-box { padding: 0; border-top: none; }
 .rank-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   grid-template-rows: repeat(2, 1fr);
   gap: 0;
   width: 100%;
@@ -645,6 +1013,11 @@ select {
    game ranking systems, and it stops Platinum reading as a duller Silver. */
 .custom-setup-screen .rank-platinum { background: linear-gradient(135deg, #5eead4, #0f766e); }
 .custom-setup-screen .rank-champion { background: linear-gradient(135deg, #e879f9, #86198f); }
+/* Two tiers above Champion - a fiery red-orange for Legendary, then a
+   near-black/red "final boss" tile for Invincible so it visibly reads as
+   the hardest option on the grid. */
+.custom-setup-screen .rank-mythic { background: linear-gradient(135deg, #fb923c, #9a3412); }
+.custom-setup-screen .rank-invincible { background: linear-gradient(135deg, #f43f5e, #1a0505); }
 
 @media (max-width: 520px), (max-height: 480px) {
   .team-box-name { font-size: 17px; }
@@ -687,10 +1060,16 @@ select {
   font-size: 20px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  box-shadow: 0 3px 12px rgba(0,0,0,0.4);
+  position: relative;
+  z-index: 1;
 }
 
 /* Each half of the bar is tinted with that team's own colour (set inline via
-   --panel-color/--panel-text from JS once teams are picked). */
+   --panel-color/--panel-text from JS once teams are picked) - a top-to-
+   bottom gradient plus a diagonal gloss sheen rather than a flat fill, and a
+   solid colour footer stripe, so it reads more like a real broadcast
+   scorebug graphic than a plain coloured box. */
 .score-panel {
   flex: 1 1 0;
   min-width: 0;
@@ -698,10 +1077,41 @@ select {
   align-items: center;
   gap: 10px;
   padding: 6px 14px;
-  background: var(--panel-color, #222);
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--panel-color, #222) 0%, var(--panel-color, #222) 55%, rgba(0,0,0,0.32) 100%);
+  box-shadow: inset 0 -3px 0 rgba(0,0,0,0.35);
+}
+.score-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.22) 8%, transparent 32%);
+  pointer-events: none;
 }
 #score-panel-home { justify-content: flex-end; }
 #score-panel-away { justify-content: flex-start; }
+
+/* A small circular crest before/after the team name - just initials on the
+   team's own colour (no real club badge assets), same idea as a broadcast
+   graphic's team logo without needing licensed artwork. Populated in JS
+   (initMatchWithClubs) alongside --panel-color/--panel-badge. */
+.team-crest {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  border: 1.5px solid rgba(255,255,255,0.55);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  position: relative;
+  z-index: 1;
+}
 
 .team-name {
   color: var(--panel-text, #fff);
@@ -709,6 +1119,9 @@ select {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  position: relative;
+  z-index: 1;
 }
 
 /* The score itself sits in a badge, digit coloured to match that side's team.
@@ -717,7 +1130,9 @@ select {
    a white badge. --panel-badge is set alongside --panel-color/--panel-text
    in JS to whichever of black/white actually contrasts with that team's
    colour (see readableTextColor), so the badge itself flips dark for light
-   kits and stays light for dark kits. */
+   kits and stays light for dark kits. A subtle bevel (inset highlight top,
+   shadow bottom) and drop shadow give it real dimension instead of sitting
+   flat on the panel. */
 .score-num {
   flex-shrink: 0;
   background: var(--panel-badge, #fff);
@@ -728,8 +1143,18 @@ select {
   line-height: 28px;
   border-radius: 50%;
   text-align: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -2px 2px rgba(0,0,0,0.15);
+  position: relative;
+  z-index: 1;
+  transition: transform 0.2s ease;
 }
+/* A quick scale "pop" right as a goal lands - see scoreGoal, which toggles
+   this class briefly - so the number itself visibly reacts to the goal
+   rather than just silently incrementing. */
+.score-num.score-pop { transform: scale(1.35); }
 
+/* A stadium-scoreboard-style digital clock - dark LED-panel background,
+   monospace digits - rather than plain inline text sat in the header bar. */
 #score-center {
   flex: 0 0 auto;
   display: flex;
@@ -737,6 +1162,18 @@ select {
   gap: 10px;
   padding: 0 14px;
   background: var(--surface);
+}
+#match-clock {
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  letter-spacing: 1px;
+  background: #0a0e14;
+  color: #4ade80;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: inset 0 1px 4px rgba(0,0,0,0.6);
+  text-shadow: 0 0 6px rgba(74,222,128,0.6);
 }
 #half-label { font-size: 14px; opacity: 0.75; }
 #weather-label { font-size: 13px; opacity: 0.8; }
@@ -996,6 +1433,29 @@ select {
 #td-run { background: rgba(29,78,216,0.4); border-radius: 24px; }
 #td-run:active { background: rgba(37,99,235,0.75); }
 
+/* Shoot doubles as a small drag joystick, same footprint as the button
+   itself (see bindShootJoystick) - the knob is purely visual (pointer-events
+   none, so the button underneath keeps handling the actual drag) and
+   travels a short distance from centre, same idea as the movement
+   joystick's stick but scaled down to fit inside a 68px circle instead of
+   sitting in its own separate 110px base. */
+#td-shoot { position: relative; overflow: visible; }
+#td-shoot-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  margin-left: -11px;
+  margin-top: -11px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.6);
+  border: 2px solid rgba(255,255,255,0.9);
+  pointer-events: none;
+  transition: background 0.1s;
+}
+#td-shoot.aiming #td-shoot-knob { background: rgba(255,30,30,0.85); }
+
 #controls-body table {
   border-collapse: collapse;
   margin-top: 6px;
@@ -1037,11 +1497,55 @@ select {
   margin: 10px 0;
 }
 
-/* Themed around the scoring team's own kit colour, white as the accent. */
+/* A few quick camera-flash pulses across the whole overlay right as the
+   banner appears - stadium photographers going off at the moment of a
+   goal - rather than the banner just silently fading in. Sits behind the
+   box itself (painted first, box comes after in DOM order). */
+.goal-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  animation: goalFlash 1s ease-out;
+}
+@keyframes goalFlash {
+  0% { opacity: 0.9; }
+  9% { opacity: 0; }
+  18% { opacity: 0.55; }
+  27% { opacity: 0; }
+  36% { opacity: 0.3; }
+  45% { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+/* Themed around the scoring team's own kit colour, white as the accent - a
+   slowly-spinning sunburst of rays behind the text for a real "broadcast
+   graphic" feel, plus the scoring team's own crest and the fresh scoreline
+   underneath rather than just "GOAL!" on its own. */
 .goal-box {
+  position: relative;
+  overflow: hidden;
   background: var(--team-color, #161b22);
   border: 1px solid rgba(255,255,255,0.5);
   box-shadow: var(--shadow-md), 0 0 40px rgba(255,255,255,0.15);
+}
+.goal-sunburst {
+  position: absolute;
+  inset: -60%;
+  background: repeating-conic-gradient(rgba(255,255,255,0.14) 0deg 8deg, transparent 8deg 16deg);
+  animation: goalSunburstSpin 9s linear infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+@keyframes goalSunburstSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.goal-box h2, .goal-box .goal-crest, .goal-score-line { position: relative; z-index: 1; }
+.goal-crest {
+  width: 52px;
+  height: 52px;
+  font-size: 18px;
+  margin: 0 auto 8px;
+  border-width: 2px;
 }
 .goal-box h2 {
   font-size: 48px;
@@ -1053,10 +1557,104 @@ select {
     0 0 10px rgba(0,0,0,0.4);
   animation: goalPulse 0.4s ease-out;
 }
+.goal-score-line {
+  margin: 8px 0 0;
+  font-size: 19px;
+  font-weight: bold;
+  color: #fff;
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
 @keyframes goalPulse {
   0% { transform: scale(0.4); opacity: 0; }
   70% { transform: scale(1.15); opacity: 1; }
   100% { transform: scale(1); opacity: 1; }
+}
+
+/* Cup Final win - a gold/amber identity distinct from every other overlay
+   (not tied to either club's kit colour, same reasoning as the pause menu's
+   fixed green), with the trophy itself doing a little lift-and-settle. */
+.cup-trophy-box {
+  background: linear-gradient(160deg, #b45309, #451a03);
+  border: 1px solid rgba(255, 215, 130, 0.5);
+  box-shadow: var(--shadow-md), 0 0 50px rgba(234, 179, 8, 0.25);
+}
+.cup-trophy-icon {
+  font-size: 64px;
+  line-height: 1;
+  margin-bottom: 6px;
+  animation: cupTrophyLift 1.1s cubic-bezier(0.34, 1.56, 0.64, 1);
+  filter: drop-shadow(0 6px 10px rgba(0,0,0,0.5));
+}
+@keyframes cupTrophyLift {
+  0% { transform: translateY(40px) scale(0.5) rotate(-8deg); opacity: 0; }
+  55% { transform: translateY(-10px) scale(1.1) rotate(4deg); opacity: 1; }
+  100% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+}
+.cup-trophy-box h2 {
+  margin: 0 0 6px;
+  letter-spacing: 2px;
+  color: #ffe9b3;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
+.cup-trophy-club { font-size: 16px; font-weight: bold; opacity: 0.9; margin: 0 0 18px; }
+
+/* Pause menu - same pitch-green identity + slowly-drifting abstract lines
+   as the main hub (see .mode-abstract-bg/renderModeAbstractLines), rather
+   than a plain dark settings-style box, plus big pill actions matching the
+   hub's own .mode-enter-btn language instead of stock buttons. Colour is
+   fixed (not team-themed) since pausing isn't specific to either side. */
+.pause-box {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(160deg, #1e8449, #0f3d20);
+  border: 1px solid rgba(255,255,255,0.18);
+  --accent: #22c55e;
+  padding: 34px 36px;
+}
+.pause-content { position: relative; z-index: 1; }
+/* Full Time's content (stats table, achievements, several buttons) can run
+   taller than the pause menu's fixed handful of buttons ever does -
+   .pause-box's overflow:hidden (there to clip the abstract-lines layer)
+   would otherwise also swallow the vertical scrolling .overlay-box
+   normally provides on a short viewport. */
+#fulltime-overlay .pause-box { overflow-x: hidden; overflow-y: auto; }
+.pause-box h2 {
+  margin: 0 0 18px;
+  letter-spacing: 2px;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
+.pause-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 280px;
+  margin: 0 auto 10px;
+  padding: 14px 20px;
+  border-radius: 999px;
+  border: none;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+.pause-action:hover { filter: brightness(1.12); }
+.pause-action:active { transform: scale(0.97); }
+.pause-action-resume { background: var(--accent); color: #06210f; }
+.pause-action-subs { background: rgba(255,255,255,0.14); color: #fff; border: 2px solid rgba(255,255,255,0.4); }
+.pause-action-quit { background: rgba(220,38,38,0.85); color: #fff; }
+.pause-key-hint {
+  font-size: 11px;
+  font-weight: 800;
+  opacity: 0.75;
+  border: 1.5px solid currentColor;
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-left: 2px;
 }
 
 /* CAREER: TRANSFER/CONTRACT MEETING - lives at the body level (not inside
@@ -1166,6 +1764,16 @@ select {
 }
 .career-meeting-tiers button:hover { background: rgba(0, 0, 0, 0.45); }
 .career-meeting-tiers button .tier-odds { opacity: 0.7; font-weight: normal; font-size: 11px; }
+/* Picking a tier now just highlights it (same idea as the contract-length
+   picker) - offers aren't put to the club/player until the final Sign
+   button, not the moment you click a tier - see renderTierPicker. */
+.career-meeting-tiers button.active {
+  background: linear-gradient(135deg, #eab308, #92400e);
+  border-color: rgba(255, 255, 255, 0.7);
+}
+.career-meeting-tiers button:disabled { opacity: 0.4; cursor: default; background: rgba(0, 0, 0, 0.2); }
+.career-meeting-tiers button:disabled:hover { background: rgba(0, 0, 0, 0.2); }
+.career-meeting-confirm-btn:disabled { opacity: 0.4; cursor: default; filter: none !important; }
 .career-meeting-actions { display: flex; gap: 10px; justify-content: center; }
 .career-meeting-actions button {
   font-family: inherit;
@@ -1379,6 +1987,56 @@ select {
 .fixture-badge.badge-draw { background: rgba(255, 213, 79, 0.2); color: #ffd54f; }
 .fixture-badge.badge-loss { background: rgba(248, 113, 113, 0.2); color: #f87171; }
 
+/* My Fixtures / League Table toggle - same pill-tab look as the Transfer
+   Market's Buy/Offers tabs (.career-market-tab-btn). */
+.season-view-tabs { display: flex; justify-content: center; gap: 8px; margin: 6px 0; }
+.season-view-tab {
+  background: rgba(0, 0, 0, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-family: inherit;
+  padding: 6px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  opacity: 0.75;
+}
+.season-view-tab:hover { opacity: 0.95; }
+.season-view-tab.active {
+  background: linear-gradient(135deg, #ca8a04, #713f12);
+  border-color: rgba(255, 255, 255, 0.6);
+  opacity: 1;
+}
+#season-standings {
+  max-height: 40vh;
+  overflow-y: auto;
+  margin: 10px 0;
+  width: 360px;
+  max-width: 90vw;
+}
+.season-standings-table { width: 100%; border-collapse: collapse; }
+.season-standings-table th { font-size: 11px; opacity: 0.7; text-align: left; padding: 4px 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+.season-standings-table th:not(:first-child), .season-standings-table td:not(:first-child) { text-align: right; }
+.season-standings-table td { padding: 5px 8px; border-bottom: 1px solid #333; font-size: 13px; }
+
+/* End-of-season awards - shown once the fixture list runs out (see
+   renderSeasonAwards), same shape as the pause/halftime cards elsewhere. */
+#season-awards { width: 360px; max-width: 90vw; margin: 10px auto; }
+.season-awards-title { font-size: 20px; margin: 0 0 10px; }
+.season-award-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.season-award-row span:first-child { opacity: 0.75; }
+.season-award-row span:last-child { font-weight: bold; }
+
 /* Post-match stats table */
 #fulltime-stats {
   border-collapse: collapse;
@@ -1439,27 +2097,85 @@ select {
 #shootout-power-fill { height: 100%; width: 0%; background: #eab308; transition: width 0.05s linear; }
 #btn-shootout-kick { -webkit-user-select: none; user-select: none; touch-action: none; }
 
-/* Substitutions overlay */
-#subs-remaining { text-align: center; font-size: 14px; margin: 4px 0; }
-.subs-col-label { font-size: 12px; opacity: 0.7; text-align: left; margin: 10px 0 4px; }
-.subs-list {
-  width: 360px;
-  max-width: 90vw;
-  max-height: 22vh;
-  overflow-y: auto;
-}
-.sub-row {
+/* Substitutions page - a full screen (like the Career squad screens) rather
+   than a small popup, and now actually laid out like that screen too: your
+   starting XI on a real formation pitch (see .formation-pitch/.formation-
+   player, shared with renderCareerLineupScreen) instead of a plain list,
+   bench alongside it - plus a persistent 15s auto-return timer bar pinned
+   to the bottom (see startSubsAutoTimer/closeSubsScreen in game.js). */
+#subs-screen { align-items: stretch; justify-content: flex-start; padding: 0; position: relative; }
+.subs-screen-title { position: relative; z-index: 1; text-align: center; margin: 50px 0 2px; }
+#subs-remaining { position: relative; z-index: 1; text-align: center; font-size: 14px; margin: 0 0 4px; }
+.subs-screen-body {
+  position: relative;
+  z-index: 1;
   display: flex;
-  justify-content: space-between;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  box-sizing: border-box;
+}
+.subs-bench-panel {
+  flex: 2 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 12px 6px;
+  overflow: hidden;
+}
+.subs-bench-panel h3 { margin: 0 0 6px; font-size: 15px; opacity: 0.85; text-align: center; }
+.subs-bench-panel .subs-list { flex: 1 1 auto; overflow-y: auto; min-height: 0; width: 100%; }
+.subs-bench-panel .hint-text { text-align: center; }
+.subs-back-btn { position: relative; z-index: 1; display: block; margin: 0 auto 6px; flex-shrink: 0; }
+#subs-timer-wrap { position: relative; z-index: 1; flex-shrink: 0; padding: 8px 20px 18px; text-align: center; }
+#subs-timer-text { font-size: 13px; opacity: 0.8; margin: 0 0 6px; }
+.subs-timer-track { width: 100%; max-width: 400px; margin: 0 auto; height: 6px; border-radius: 3px; background: rgba(0,0,0,0.35); overflow: hidden; }
+#subs-timer-fill { height: 100%; width: 100%; background: var(--accent, #22c55e); transition: width 1s linear; }
+.subs-list {
+  width: 100%;
+  max-width: 100%;
+}
+/* Stamina bar + injury icon shown ABOVE each pitch marker's dot (see
+   renderSubsScreen) - same colour tiers as the bench cards' status strip
+   (.sub-stamina-high/mid/low), just compact enough to sit over an 11-a-side
+   formation without crowding it. */
+.formation-player-status { display: flex; align-items: center; gap: 3px; width: 50px; }
+.formation-player-stamina-bar { flex: 1 1 auto; height: 5px; background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.3); border-radius: 3px; overflow: hidden; }
+.formation-player-stamina-fill { height: 100%; border-radius: 3px; }
+.formation-player-stamina-fill.sub-stamina-high { background: #4ade80; }
+.formation-player-stamina-fill.sub-stamina-mid { background: #ffd54f; }
+.formation-player-stamina-fill.sub-stamina-low { background: #f87171; }
+.formation-player-injury-icon { font-size: 12px; flex-shrink: 0; }
+.sub-player-row { margin-bottom: 8px; }
+.sub-player-row.sub-row-selected .player-card { outline: 2px solid #eab308; }
+.sub-player-row .player-card button { font-size: 12px; padding: 4px 10px; margin: 0; }
+.sub-player-row .player-card button:disabled { opacity: 0.4; cursor: default; background: #444; }
+/* The live status strip above each card - a stamina bar (distinct from the
+   static "STA" sub-stat inside the card itself, which is the player's
+   fitness ATTRIBUTE, not how tired they currently are this match) plus an
+   injury/card badge when relevant. */
+.sub-status-row {
+  display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 8px;
-  border-bottom: 1px solid #333;
-  font-size: 13px;
+  padding: 0 4px 3px;
+  font-size: 11px;
 }
-.sub-row-selected { background: rgba(234,179,8,0.15); }
-.sub-row button { font-size: 12px; padding: 4px 10px; margin: 0; }
-.sub-row button:disabled { opacity: 0.4; cursor: default; background: #444; }
+.sub-stamina-bar {
+  flex: 1 1 auto;
+  height: 6px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.sub-stamina-fill { height: 100%; border-radius: 3px; }
+.sub-stamina-fill.sub-stamina-high { background: #4ade80; }
+.sub-stamina-fill.sub-stamina-mid { background: #ffd54f; }
+.sub-stamina-fill.sub-stamina-low { background: #f87171; }
+.sub-stamina-pct { flex-shrink: 0; opacity: 0.75; min-width: 30px; text-align: right; }
+.sub-injury-badge { color: #f87171; font-weight: bold; flex-shrink: 0; }
+.sub-card-badge { flex-shrink: 0; }
 
 /* Career mode - styled to match the rest of the app's setup screens rather
    than reading like a plain settings list: a club-colour banner up top (same
@@ -1558,6 +2274,34 @@ select {
 .player-card .player-meta { font-size: 11px; opacity: 0.75; display: block; margin-top: 2px; }
 .player-card button { font-size: 12px; padding: 5px 10px; margin: 0; flex-shrink: 0; }
 
+/* FIFA/FC-style 1-99 overall badge - colour tiers so a glance at a squad
+   list picks out the stars (gold) from the fringe players (grey) without
+   reading every number. */
+.player-ovr {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 13px;
+  border: 1px solid rgba(255,255,255,0.25);
+}
+.player-ovr.ovr-elite { background: linear-gradient(160deg, #f5d060, #b8860b); color: #2a1a00; }
+.player-ovr.ovr-good { background: linear-gradient(160deg, #b9c8d8, #7f93a8); color: #16202a; }
+.player-ovr.ovr-mid { background: linear-gradient(160deg, #9c7a52, #6b5334); color: #f0e6d8; }
+.player-ovr.ovr-low { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.7); }
+.player-card .player-substats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.player-card .substat { font-size: 10px; opacity: 0.7; display: flex; gap: 3px; align-items: baseline; }
+.player-card .substat b { font-size: 11px; opacity: 1; }
+
 /* Career save slots - six boxes filling the whole screen (3 top, 3 bottom),
    reusing .team-box itself (same club-colour-via-custom-property mechanism
    as the team pickers) rather than a new component, just switched to a
@@ -1647,8 +2391,8 @@ select {
 
 /* Transfer Market - full-bleed themed screen (the .theme-career background
    already covers the whole viewport, same as Season Table/Cup Progress)
-   rather than boxed into the small setup-card. Four independently-scrolling
-   columns (GK/DEF/MID/FWD), each a quarter of the width, going across. */
+   rather than boxed into the small setup-card. League -> Club -> Position
+   drill-down (see .market-nav-view and friends further down). */
 .career-market-screen {
   position: relative;
   align-items: stretch;
@@ -1659,14 +2403,13 @@ select {
      actual player list down and leaving only a sliver of it visible. */
   padding-top: 8px;
 }
-/* Bug fix: this panel wasn't a flex container itself, so its child
-   .career-market-columns (and in turn .career-market-col-list, already
-   correctly set up as flex:1 1 auto; overflow-y:auto) never actually got
-   height-constrained - it just grew to full content height and got clipped
-   by the page's overflow:hidden, with nothing left to scroll. flex:1 1 auto
-   here makes this panel itself size correctly as a flex item of the screen
-   column above it; display:flex + min-height:0 lets its own children size
-   correctly in turn. */
+/* Bug fix (still relevant): this panel wasn't a flex container itself, so
+   its child .market-nav-view (and in turn whichever carousel/list is
+   inside it) never actually got height-constrained - it just grew to full
+   content height and got clipped by the page's overflow:hidden, with
+   nothing left to scroll. flex:1 1 auto here makes this panel itself size
+   correctly as a flex item of the screen column above it; display:flex +
+   min-height:0 lets its own children size correctly in turn. */
 #career-market-buy-panel {
   display: flex;
   flex-direction: column;
@@ -1691,32 +2434,6 @@ select {
   font-weight: bold;
   align-self: center;
   margin-bottom: 4px;
-}
-.career-market-filters {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
-  margin-bottom: 4px;
-  padding: 0 12px;
-}
-.career-market-filter-btn {
-  background: rgba(0, 0, 0, 0.35);
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  color: #fff;
-  font-family: inherit;
-  padding: 5px 14px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: bold;
-  cursor: pointer;
-  opacity: 0.75;
-}
-.career-market-filter-btn:hover { opacity: 0.95; }
-.career-market-filter-btn.active {
-  background: linear-gradient(135deg, #ca8a04, #713f12);
-  border-color: rgba(255, 255, 255, 0.6);
-  opacity: 1;
 }
 .career-market-tabs {
   display: flex;
@@ -1811,97 +2528,145 @@ select {
   padding: 0 4px;
 }
 
-/* Club picker - a scrollable grid of every club currently in the transfer
-   pool (see renderCareerTransferScreen), each tile kit-coloured the same
-   way every other club box in the game is (--team-color/--team-text). */
-.career-market-club-grid {
+/* Transfer Market drill-down: League -> Club -> Position, browsed the same
+   swipeable/arrow-key way as the main hub's mode-browser (see
+   bindCarouselSwipe/goToCarouselIdx in game.js) instead of a flat filter
+   bar + always-visible 4-column list. Only one of the three views is
+   visible at a time (see showMarketView). */
+.market-nav-view {
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 8px;
-  padding: 4px 12px 44px; /* bottom clears the back button overlapping the bottom-left corner */
-}
-.career-market-club-tile {
-  background: var(--team-color, #333);
-  color: var(--team-text, #fff);
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  border-radius: 8px;
-  padding: 10px 8px;
-  font-family: inherit;
-  font-weight: bold;
-  font-size: 13px;
-  cursor: pointer;
-  text-align: center;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  align-items: stretch;
 }
-.career-market-club-tile:hover { border-color: rgba(255, 255, 255, 0.7); }
-.career-market-club-tile .club-tile-count { font-size: 11px; font-weight: normal; opacity: 0.85; }
+.market-carousel-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: stretch;
+}
+.market-carousel-viewport { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+.market-league-track, .market-club-track, .market-position-track {
+  display: flex;
+  height: 100%;
+  transition: transform 0.32s ease;
+}
+.market-league-page, .market-club-page, .market-position-page {
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.market-nav-arrow-left { left: 4px; }
+.market-nav-arrow-right { right: 4px; }
+.mode-browser-dots-inline { display: flex; justify-content: center; gap: 9px; padding: 6px 0 4px; flex-shrink: 0; }
 
-#career-market-players-panel {
+.market-league-page {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
-}
-.career-market-club-header {
-  display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 12px 6px;
-  flex: 0 0 auto;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px 60px;
+  text-align: center;
 }
-.career-market-club-header #btn-market-club-back {
-  position: static; /* overrides .back-btn-overlap's corner positioning - sits inline in this header instead */
+.market-league-page h2 { margin: 0; font-size: 26px; }
+.market-league-sub { opacity: 0.8; font-size: 14px; margin: 0 0 6px; }
+
+/* Reuses .team-box itself (same club-colour-via-custom-property mechanism,
+   flair sash, stripe pattern) - see styleTeamBox in game.js - just one big
+   centred panel per page instead of the small picker box. */
+.market-club-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  /* Horizontal breathing room has to be padding, not margin - margin isn't
+     covered by box-sizing:border-box, so it was adding 120px on top of the
+     page's own 100% flex-basis width instead of being absorbed into it -
+     every page was rendering 120px wider than one carousel step actually
+     moves, an overflow that compounded further with each page in the row. */
+  padding: 24px 60px;
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+}
+.market-club-page-name { font-size: 24px; }
+.market-club-page-count { opacity: 0.9; font-size: 13px; margin: 0; position: relative; z-index: 1; }
+
+.market-level-back {
+  align-self: flex-start;
+  margin: 4px 0 4px 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-family: inherit;
+  border-radius: 999px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.market-level-back:hover { opacity: 0.9; }
+
+.career-market-club-header { text-align: center; margin-bottom: 4px; flex-shrink: 0; }
+#market-position-club-name { font-weight: bold; font-size: 16px; opacity: 0.9; }
+
+.market-position-tabs { display: flex; justify-content: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; flex-shrink: 0; }
+.market-position-tab {
   background: rgba(0, 0, 0, 0.35);
   border: 2px solid rgba(255, 255, 255, 0.25);
   color: #fff;
   font-family: inherit;
-  font-weight: bold;
-  font-size: 12px;
   padding: 5px 14px;
   border-radius: 999px;
-  cursor: pointer;
-}
-.career-market-club-header #btn-market-club-back:hover { opacity: 0.9; }
-.career-market-club-header #career-market-club-name {
+  font-size: 12px;
   font-weight: bold;
-  font-size: 14px;
-  opacity: 0.9;
+  cursor: pointer;
+  opacity: 0.75;
+}
+.market-position-tab:hover { opacity: 0.95; }
+.market-position-tab.active {
+  background: linear-gradient(135deg, #ca8a04, #713f12);
+  border-color: rgba(255, 255, 255, 0.6);
+  opacity: 1;
 }
 
-.career-market-columns {
-  display: flex;
-  width: 100%;
-  flex: 1 1 auto;
-  min-height: 0;
-  padding-bottom: 44px; /* clears the back button overlapping the bottom-left corner */
-}
-.career-market-col {
-  flex: 1 1 25%;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  border-right: 1px solid rgba(255, 255, 255, 0.15);
-  padding: 4px 8px;
-}
-.career-market-col:last-child { border-right: none; }
-.career-market-col h3 {
-  font-size: 13px;
+/* max-width has to stay OFF this element - it's the actual carousel page,
+   flex:0 0 100% (see the shared rule above) needs the full viewport width
+   to make one-page-at-a-time paging work at all. A left-over max-width
+   here (from before this was its own carousel page) was capping every
+   page's real width well under the viewport, so however many capped-width
+   pages fit inside the still-viewport-wide clipped area all showed at once
+   - see .market-player-wrap below for where the readable-column width
+   constraint actually belongs instead. */
+.market-position-page { overflow-y: auto; overflow-x: hidden; padding: 4px 16px 20px; box-sizing: border-box; }
+/* Cards stack their name/meta above the Sign button in this narrower single
+   column instead of a wide side-by-side layout. */
+.market-position-page .player-card { flex-direction: column; align-items: stretch; gap: 4px; }
+.market-position-page .player-card button { align-self: flex-end; }
+.market-player-wrap { max-width: 560px; margin: 0 auto 10px; }
+.market-player-blurb { font-size: 12px; opacity: 0.75; margin: 4px 2px 0; font-style: italic; }
+/* One accent colour per position (--pos-accent, same POSITION_COLOR every
+   player-card already uses) plus a real header, so each position's page
+   reads as its own distinct page instead of just a re-filtered list. */
+.market-position-page-header {
   text-align: center;
-  margin: 4px 0 8px;
-  opacity: 0.8;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  padding: 4px 0 12px;
+  margin-bottom: 10px;
+  border-bottom: 3px solid var(--pos-accent, #64748b);
 }
-.career-market-col-list { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
-/* Cards stack their name/meta above the Sign button in these narrower
-   columns instead of the wider list's side-by-side layout. */
-.career-market-col-list .player-card { flex-direction: column; align-items: stretch; gap: 4px; }
-.career-market-col-list .player-card button { align-self: flex-end; }
+.market-position-page-header h2 {
+  margin: 0;
+  font-size: 22px;
+  color: var(--pos-accent, #fff);
+  text-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+.market-position-page-header p { margin: 3px 0 0; font-size: 12px; opacity: 0.75; }
 
 .career-back-btn {
   position: absolute;
@@ -2022,6 +2787,24 @@ select {
 .career-trophy-badge.promo { background: linear-gradient(135deg, #16a34a, #14532d); }
 .career-trophy-badge.releg { background: linear-gradient(135deg, #dc2626, #7f1d1d); }
 
+.season-complete-box { max-width: 400px; }
+/* One row per cup/continental competition actually played this season -
+   won, or knocked out at which round (see showSeasonCompleteOverlay). */
+.season-complete-competitions { width: 100%; margin: 4px 0 12px; }
+.season-complete-comp-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.season-complete-comp-row span:first-child { opacity: 0.8; }
+.comp-result-won { font-weight: bold; color: #ffd54f; }
+.comp-result-out { color: #f87171; }
+
 /* League table screen */
 .career-table-wrap {
   width: 640px;
@@ -2138,6 +2921,22 @@ select {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Sits right under a starting XI marker whose contract needs sorting soon
+   (see renderCareerLineupScreen) - small enough not to crowd an 11-a-side
+   formation, same green as the reserves list's own Renew/Start buttons. */
+.formation-player-renew-btn {
+  background: #16a34a;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: #fff;
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: bold;
+  border-radius: 999px;
+  padding: 2px 8px;
+  margin: 0;
+  cursor: pointer;
+}
+.formation-player-renew-btn:hover { filter: brightness(1.15); }
 .career-reserves-panel {
   flex: 2 1 0;
   min-width: 0;
